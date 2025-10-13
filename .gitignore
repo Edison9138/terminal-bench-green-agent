@@ -205,3 +205,76 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================================================
+# Terminal-Bench Green Agent Project Specific
+# ============================================================================
+
+# API Keys and Secrets
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials.json
+
+# Battle Results and Logs
+/tmp/terminal-bench-battles/
+/results/
+/battles/
+battle_*.json
+*.cast
+green_agent.log
+runs/
+experiments/
+
+# Docker and Terminal-Bench artifacts
+docker-compose.override.yml
+.docker/
+*.tar.gz
+*.dockerfile
+
+# Agent Configuration (if contains secrets)
+# Uncomment if your agent card contains sensitive info
+# *_agent_card.toml
+
+# MCP Server artifacts
+.mcp/
+mcp_server.log
+
+# Asciinema recordings
+*.cast
+
+# Battle state and temporary files
+battle_state.pkl
+*.tmp
+.battle_cache/
+.tmp/
+.wizard/
+cache/
+
+# AgentBeats specific
+.agentbeats/
+agentbeats_*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE and Editor specific
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+.cursor
+.claude
+*.code-workspace
+
+# Jupyter Notebooks (if used for analysis)
+notebooks/
+*.ipynb_checkpoints
+
+# Streamlit (if used for visualization)
+.streamlit/
