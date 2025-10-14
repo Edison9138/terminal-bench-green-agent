@@ -234,7 +234,7 @@ examples    = ["Evaluate agent on task hello-world", "Run terminal-bench evaluat
 **Tool 1: `execute_command`**
 ```python
 @ab_agent.tool
-def execute_command(command: str) -> str:
+def execute_command(command: str) -> dict:
     """
     Execute a command in the task's Docker environment.
     Used by white agent to interact with the terminal.
@@ -243,17 +243,46 @@ def execute_command(command: str) -> str:
         command: Shell command to execute
 
     Returns:
-        Command output (stdout + stderr)
+        Dict with terminal_command, terminal_output, and success keys
     """
     if not battle_state.current_session:
-        return "Error: No active session. Call setup_task first."
+        return {
+            "success": False,
+            "error": "No active session. Call start_battle first.",
+            "terminal_command": command,
+            "terminal_output": ""
+        }
 
     try:
-        battle_state.current_session.send_keys([command, "Enter"], block=True)
-        output = battle_state.current_session.capture_pane()
-        return output
+        # Send command with blocking wait
+        battle_state.current_session.send_keys(
+            keys=[command, "Enter"],
+            block=True,
+            max_timeout_sec=30.0
+        )
+        # Capture the output
+        output = battle_state.current_session.capture_pane(capture_entire=False)
+
+        return {
+            "success": True,
+            "terminal_command": command,
+            "terminal_output": output,
+            "asciinema_url": None  # Optional: add recording URL later
+        }
+    except TimeoutError:
+        return {
+            "success": False,
+            "error": "Command timed out after 30 seconds",
+            "terminal_command": command,
+            "terminal_output": ""
+        }
     except Exception as e:
-        return f"Error executing command: {str(e)}"
+        return {
+            "success": False,
+            "error": f"Error executing command: {str(e)}",
+            "terminal_command": command,
+            "terminal_output": ""
+        }
 ```
 
 **Tool 2: `read_file`**
@@ -267,13 +296,19 @@ def read_file(path: str) -> str:
         path: File path relative to /app
 
     Returns:
-        File contents
+        File contents or error message
     """
     if not battle_state.current_session:
         return "Error: No active session."
 
     try:
-        output = execute_command(f"cat {path}")
+        # Use cat to read file contents
+        battle_state.current_session.send_keys(
+            keys=[f"cat {path}", "Enter"],
+            block=True,
+            max_timeout_sec=10.0
+        )
+        output = battle_state.current_session.capture_pane(capture_entire=False)
         return output
     except Exception as e:
         return f"Error reading file: {str(e)}"
@@ -291,7 +326,7 @@ def write_file(path: str, content: str) -> str:
         content: Content to write
 
     Returns:
-        Success message
+        Success message or error
     """
     if not battle_state.current_session:
         return "Error: No active session."
@@ -299,7 +334,11 @@ def write_file(path: str, content: str) -> str:
     try:
         # Use heredoc to avoid shell escaping issues
         cmd = f"cat > {path} << 'EOF'\n{content}\nEOF"
-        execute_command(cmd)
+        battle_state.current_session.send_keys(
+            keys=[cmd, "Enter"],
+            block=True,
+            max_timeout_sec=10.0
+        )
         return f"Successfully wrote to {path}"
     except Exception as e:
         return f"Error writing file: {str(e)}"
@@ -311,39 +350,91 @@ def write_file(path: str, content: str) -> str:
 def submit_solution() -> str:
     """
     Trigger evaluation of the white agent's solution.
+    Runs the test suite and reports results to the backend.
     """
+    from agentbeats.logging import update_battle_process, get_battle_id, get_backend_url
+
     if not battle_state.current_terminal or not battle_state.current_trial:
-        return "Error: No active battle."
+        return "Error: No active battle. Call start_battle first."
 
-    # Run evaluation
-    result = _run_evaluation(
-        terminal=battle_state.current_terminal,
-        session=battle_state.current_session,
-        task_paths=battle_state.current_trial.task_paths,
-        max_test_timeout_sec=battle_state.current_trial.task.max_test_timeout_sec
-    )
+    try:
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message="Running evaluation tests",
+            detail={"task_id": battle_state.current_trial.task_id},
+            reported_by="Terminal-Bench Green Agent"
+        )
 
-    # Report to backend
-    from agentbeats.logging import record_battle_result, get_battle_id
+        # Run evaluation with task parameter for parser selection
+        result = _run_evaluation(
+            terminal=battle_state.current_terminal,
+            session=battle_state.current_session,
+            task_paths=battle_state.current_trial.task_paths,
+            task=battle_state.current_trial.task,
+            max_test_timeout_sec=battle_state.current_trial.task.max_test_timeout_sec
+        )
 
-    record_battle_result(
-        battle_id=get_battle_id(),
-        winner="white_agent" if result["is_resolved"] else "none",
-        detail=result
-    )
+        # Report detailed results to backend
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message=f"Evaluation complete. Success: {result['is_resolved']}",
+            detail=result,
+            reported_by="Terminal-Bench Green Agent"
+        )
 
-    return f"Evaluation complete. Success: {result['is_resolved']}"
+        # Report final battle result
+        from agentbeats.logging import get_battle_id, get_backend_url
+        # Note: report_on_battle_end should be called via MCP tool if available
+        # For now, we log the completion
+
+        success_msg = f"Evaluation complete.\n"
+        success_msg += f"- Tests Passed: {result.get('num_passed', 0)}/{result.get('num_tests', 0)}\n"
+        success_msg += f"- Success: {result['is_resolved']}\n"
+        success_msg += f"- Failure Mode: {result.get('failure_mode', 'UNKNOWN')}"
+
+        return success_msg
+
+    except Exception as e:
+        error_msg = f"Error during evaluation: {str(e)}"
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message=error_msg,
+            detail={"error": str(e)},
+            reported_by="Terminal-Bench Green Agent"
+        )
+        return error_msg
 ```
 
 #### 4.1.3 Main Orchestrator (`main.py`)
 
 ```python
-import agentbeats as ab
+# Standard library imports
+import atexit
 from pathlib import Path
 from typing import Optional
+
+# Third-party imports
+import agentbeats as ab
+
+# Terminal-bench imports
 from terminal_bench.dataset import Dataset
-from terminal_bench.terminal import spin_up_terminal
-from terminal_bench.handlers import TrialHandler
+from terminal_bench.terminal.terminal import spin_up_terminal
+from terminal_bench.handlers.trial_handler import TrialHandler
+from terminal_bench.parsers.parser_factory import ParserFactory
+from terminal_bench.parsers.base_parser import UnitTestStatus
+
+# AgentBeats imports
+from agentbeats.logging import (
+    update_battle_process,
+    get_battle_id,
+    get_backend_url,
+    get_agent_id,
+    get_frontend_agent_name
+)
+from agentbeats.utils.agents.a2a import send_message_to_agent
 
 # Initialize BeatsAgent with explicit configuration
 ab_agent = ab.BeatsAgent(
@@ -369,10 +460,11 @@ def _run_evaluation(
     terminal,
     session,
     task_paths,
+    task,
     max_test_timeout_sec: float
 ) -> dict:
     """Execute test scripts and parse results."""
-    from terminal_bench.parsers.pytest_parser import PytestParser
+    from terminal_bench.parsers.parser_factory import ParserFactory
     from terminal_bench.parsers.base_parser import UnitTestStatus
 
     # 1. Copy test files to container
@@ -384,7 +476,7 @@ def _run_evaluation(
     # 2. Execute test script
     try:
         session.send_keys(
-            ["bash /workspace/tests/run-tests.sh", "Enter"],
+            keys=["bash /workspace/tests/run-tests.sh", "Enter"],
             block=True,
             max_timeout_sec=max_test_timeout_sec
         )
@@ -395,13 +487,13 @@ def _run_evaluation(
     # 3. Capture output
     post_test_output = session.capture_pane(capture_entire=True)
 
-    # 4. Parse with pytest parser
-    parser = PytestParser()
+    # 4. Parse with appropriate parser based on task configuration
+    parser = ParserFactory.get_parser(task.parser_name)
 
     try:
         results = parser.parse(post_test_output)
         # results is dict[str, UnitTestStatus]
-        # UnitTestStatus enum: PASSED, FAILED, SKIPPED, ERROR
+        # UnitTestStatus enum: PASSED, FAILED
 
         is_resolved = all(
             status == UnitTestStatus.PASSED
@@ -410,8 +502,10 @@ def _run_evaluation(
 
         return {
             "is_resolved": is_resolved,
-            "test_results": results,
-            "failure_mode": "NONE" if is_resolved else "TEST_FAILED"
+            "test_results": {k: v.value for k, v in results.items()},  # Convert enum to string
+            "failure_mode": "NONE" if is_resolved else "TEST_FAILED",
+            "num_tests": len(results),
+            "num_passed": sum(1 for s in results.values() if s == UnitTestStatus.PASSED)
         }
     except Exception as e:
         return {
@@ -420,51 +514,90 @@ def _run_evaluation(
             "error": str(e)
         }
 
-# Setup function called by backend
-async def setup_battle(task_id: str, white_agent_url: str):
-    """Initialize battle environment."""
-    battle_state.white_agent_url = white_agent_url
+# Battle initialization tool
+@ab_agent.tool
+async def start_battle(task_id: str, white_agent_url: str) -> str:
+    """
+    Initialize a new terminal-bench battle for the given task.
 
-    # Get task
-    task_path = None
-    for t in battle_state.dataset:
-        if t.name == task_id:
-            task_path = t
-            break
+    Args:
+        task_id: The ID of the task to run (e.g., "hello-world")
+        white_agent_url: The A2A URL of the white agent to test
 
-    if not task_path:
-        raise ValueError(f"Task {task_id} not found")
+    Returns:
+        Success message with battle details
+    """
+    from agentbeats.logging import update_battle_process, get_battle_id, get_backend_url
+    from agentbeats.utils.agents.a2a import send_message_to_agent
 
-    # Setup trial handler
-    battle_state.current_trial = TrialHandler(
-        trial_name=f"{task_id}.1-of-1.battle",
-        input_path=task_path,
-        output_path=Path("/tmp/terminal-bench-battles")
-    )
+    try:
+        # Update battle progress
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message=f"Initializing battle for task: {task_id}",
+            detail={"task_id": task_id, "white_agent_url": white_agent_url},
+            reported_by="Terminal-Bench Green Agent"
+        )
 
-    # Spin up Docker
-    battle_state.current_terminal = spin_up_terminal(
-        client_container_name=battle_state.current_trial.client_container_name,
-        client_image_name=battle_state.current_trial.client_image_name,
-        docker_compose_path=battle_state.current_trial.task_paths.docker_compose_path,
-        docker_image_name_prefix=battle_state.current_trial.docker_image_name_prefix,
-        sessions_logs_path=battle_state.current_trial.trial_paths.sessions_path,
-        no_rebuild=False,
-        cleanup=True
-    ).__enter__()  # Note: Need to manage context properly
+        battle_state.white_agent_url = white_agent_url
 
-    battle_state.current_session = battle_state.current_terminal.create_session(
-        "agent",
-        as_configured_user=True
-    )
+        # Get task from dataset
+        task_path = None
+        for t in battle_state.dataset:
+            if t.name == task_id:
+                task_path = t
+                break
 
-    # Send task to white agent
-    from agentbeats.utils.agents import send_message_to_agent
+        if not task_path:
+            return f"Error: Task {task_id} not found in dataset"
 
-    instruction = battle_state.current_trial.instruction
-    await send_message_to_agent(
-        target_url=white_agent_url,
-        message=f"""
+        # Setup trial handler
+        battle_state.current_trial = TrialHandler(
+            trial_name=f"{task_id}.1-of-1.battle",
+            input_path=task_path,
+            output_path=Path("/tmp/terminal-bench-battles")
+        )
+
+        # Update progress
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message="Starting Docker environment",
+            detail={"docker_image": battle_state.current_trial.client_image_name},
+            reported_by="Terminal-Bench Green Agent"
+        )
+
+        # Spin up Docker
+        battle_state.current_terminal = spin_up_terminal(
+            client_container_name=battle_state.current_trial.client_container_name,
+            client_image_name=battle_state.current_trial.client_image_name,
+            docker_compose_path=battle_state.current_trial.task_paths.docker_compose_path,
+            docker_image_name_prefix=battle_state.current_trial.docker_image_name_prefix,
+            sessions_logs_path=battle_state.current_trial.trial_paths.sessions_path,
+            no_rebuild=False,
+            cleanup=True
+        ).__enter__()  # Note: Need to manage context properly
+
+        battle_state.current_session = battle_state.current_terminal.create_session(
+            "agent",
+            as_configured_user=True
+        )
+
+        # Send task to white agent
+        instruction = battle_state.current_trial.instruction
+
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message="Sending task instruction to white agent",
+            detail={"instruction": instruction},
+            reported_by="Terminal-Bench Green Agent"
+        )
+
+        await send_message_to_agent(
+            target_url=white_agent_url,
+            message=f"""
 Task: {instruction}
 
 You have access to the following tools to complete this task:
@@ -475,7 +608,20 @@ You have access to the following tools to complete this task:
 
 Please use these tools to complete the task, then call submit_solution().
 """
-    )
+        )
+
+        return f"Battle started successfully for task: {task_id}. White agent has been sent the instruction."
+
+    except Exception as e:
+        error_msg = f"Error starting battle: {str(e)}"
+        update_battle_process(
+            battle_id=get_battle_id(),
+            backend_url=get_backend_url(),
+            message=error_msg,
+            detail={"error": str(e)},
+            reported_by="Terminal-Bench Green Agent"
+        )
+        return error_msg
 
 # Docker cleanup
 import atexit
@@ -517,7 +663,8 @@ if __name__ == "__main__":
 ```python
 # adapter.py
 from terminal_bench.agents.base_agent import BaseAgent
-from a2a import A2AClient
+from agentbeats.utils.agents.a2a import create_a2a_client, send_message_to_agent
+import asyncio
 
 class A2AWhiteAgentAdapter(BaseAgent):
     """
@@ -527,7 +674,7 @@ class A2AWhiteAgentAdapter(BaseAgent):
 
     def __init__(self, agent_url: str, **kwargs):
         super().__init__(**kwargs)
-        self.client = A2AClient(agent_url)
+        self.agent_url = agent_url
 
     def perform_task(self, instruction: str, session: TmuxSession,
                      logging_dir: Path) -> AgentResult:
@@ -535,7 +682,7 @@ class A2AWhiteAgentAdapter(BaseAgent):
         Translate terminal-bench interface → A2A messages
         """
         # Send initial instruction via A2A
-        response = self.client.send_message(instruction)
+        response = asyncio.run(send_message_to_agent(self.agent_url, instruction))
 
         # Process tool calls from white agent
         # Execute commands in tmux session
@@ -549,41 +696,52 @@ class A2AWhiteAgentAdapter(BaseAgent):
 ```python
 import asyncio
 import json
-from agentbeats.utils.agents import send_message_to_agent
+from uuid import uuid4
+from agentbeats.utils.agents.a2a import send_message_to_agent
 
 async def main():
     green_agent_url = "http://localhost:9999"
     white_agent_url = "http://localhost:8001"
+    backend_url = "http://localhost:8000"  # AgentBeats backend
 
+    # Generate battle ID
+    battle_id = str(uuid4())
+
+    # Step 1: Initialize battle context with green agent
+    battle_init_message = json.dumps({
+        "agent_name": "Terminal-Bench Green Agent",
+        "agent_id": "green-terminal-bench",
+        "battle_id": battle_id,
+        "backend_url": backend_url
+    })
+
+    print(f"Initializing battle {battle_id}...")
+    init_response = await send_message_to_agent(
+        target_url=green_agent_url,
+        message=battle_init_message
+    )
+    print(f"Battle initialized: {init_response}")
+
+    # Step 2: Start the battle with task configuration
     task_config = {
-        "task_id": "hello-world",  # or from dataset
-        "dataset_name": "terminal-bench-core",
-        "dataset_version": "0.1.1",
+        "task_id": "hello-world",
         "white_agent_url": white_agent_url,
-        "max_agent_timeout_sec": 900,
-        "max_test_timeout_sec": 180
     }
 
-    message = f"""
-    Launch terminal-bench evaluation for task: {task_config['task_id']}.
+    start_message = f"""
+    Start terminal-bench battle for task: {task_config['task_id']}.
 
-    Task Configuration:
-    {json.dumps(task_config, indent=2)}
+    Configuration:
+    - Task ID: {task_config['task_id']}
+    - White Agent URL: {white_agent_url}
 
-    The white agent is available at: {white_agent_url}
-
-    Please:
-    1. Load the task from the dataset
-    2. Set up the Docker environment
-    3. Send the task instruction to the white agent
-    4. Monitor their progress via tool usage
-    5. Run evaluation when they submit
-    6. Report results in JSON format
+    Please call the start_battle tool to initialize the Docker environment and begin evaluation.
     """
 
+    print(f"Starting battle for task {task_config['task_id']}...")
     response = await send_message_to_agent(
         target_url=green_agent_url,
-        message=message
+        message=start_message
     )
     print("Battle Results:", response)
 

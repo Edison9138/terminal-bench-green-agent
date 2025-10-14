@@ -613,7 +613,7 @@ This document was updated on 2025-10-13 with direct verification against the act
 - Both `@ab.tool` (global) and `@ab_agent.tool` (instance) patterns are valid
 - Instance pattern (`@ab_agent.tool`) is recommended and used in production scenarios
 
-### 11.3 Updates Made to Documents
+### 11.3 Updates Made to Documents (2025-10-13 Second Pass)
 
 **INTEGRATION_PROPOSAL.md**:
 - ✅ Updated BeatsAgent initialization (line 279-285)
@@ -621,9 +621,14 @@ This document was updated on 2025-10-13 with direct verification against the act
 - ✅ Updated all tool decorators to `@ab_agent.tool` (line 236, 261, 284, 310)
 - ✅ Added complete tool implementations with error handling
 - ✅ Added detailed `_run_evaluation()` function (line 368-421)
-- ✅ Added `setup_battle()` async function (line 424-478)
-- ✅ Added Docker cleanup section (line 480-502)
-- ✅ Fixed A2A imports to use `agentbeats.utils.agents` (line 552)
+- ✅ Replaced `setup_battle()` with `start_battle()` tool (line 423-530)
+- ✅ Added Docker cleanup section (line 532-546)
+- ✅ Fixed ALL A2A imports to use `agentbeats.utils.agents.a2a` (multiple locations)
+- ✅ Fixed TmuxSession API usage (send_keys with proper parameters)
+- ✅ Updated execute_command to return dict format for frontend logging
+- ✅ Added parser flexibility using ParserFactory
+- ✅ Added comprehensive imports section at top of main.py
+- ✅ Updated kickoff script with proper battle initialization flow
 
 **ADDITIONAL_OBSERVATIONS.md**:
 - ✅ Added Python version clarification (3.10+ confirmed)
@@ -656,3 +661,128 @@ These additional observations provide the "connective tissue" between the high-l
 With INTEGRATION_PROPOSAL.md (architecture - now corrected), IMPLEMENTATION_CORRECTIONS.md (fixes - verified accurate), and this document (nuances + verification), you have everything needed to build a production-ready terminal-bench green agent.
 
 **All documents have been verified against the actual codebase and updated accordingly. Ready to proceed with Phase 1 implementation!**
+
+---
+
+## 12. Second Review Pass - Issues Fixed (2025-10-13)
+
+After detailed code review against actual agentbeats and terminal-bench source code, the following critical corrections were made:
+
+### 12.1 Fixed Import Paths
+
+**Issue**: Original document referenced `from a2a import A2AClient` which doesn't exist in the agentbeats SDK.
+
+**Fix**: All A2A communication now uses:
+```python
+from agentbeats.utils.agents.a2a import send_message_to_agent, create_a2a_client
+```
+
+**Verified Against**: `/Users/edison/Desktop/dev/green_agent/agentbeats/src/agentbeats/utils/agents/a2a.py`
+
+### 12.2 Corrected Battle Initialization Flow
+
+**Issue**: Original `setup_battle()` function was async but not callable as a tool.
+
+**Fix**: Created `start_battle()` as an `@ab_agent.tool` that:
+- Green agent LLM can invoke directly
+- Handles Docker environment setup
+- Sends initial message to white agent
+- Reports progress to backend throughout
+
+**Implementation**: Lines 423-530 in INTEGRATION_PROPOSAL.md
+
+### 12.3 Fixed TmuxSession API Usage
+
+**Issue**: Original code used incorrect API for TmuxSession.
+
+**Fix**: Updated all session interactions to use proper API:
+```python
+session.send_keys(
+    keys=[command, "Enter"],
+    block=True,
+    max_timeout_sec=30.0
+)
+output = session.capture_pane(capture_entire=False)
+```
+
+**Verified Against**: `/Users/edison/Desktop/dev/green_agent/terminal-bench/terminal_bench/terminal/tmux_session.py:249-319`
+
+### 12.4 Added Parser Flexibility
+
+**Issue**: Code hardcoded PytestParser, but terminal-bench supports multiple parsers.
+
+**Fix**: Updated `_run_evaluation()` to use ParserFactory:
+```python
+from terminal_bench.parsers.parser_factory import ParserFactory
+parser = ParserFactory.get_parser(task.parser_name)
+```
+
+**Verified Against**: `/Users/edison/Desktop/dev/green_agent/terminal-bench/terminal_bench/parsers/parser_factory.py`
+
+### 12.5 Enhanced execute_command Return Format
+
+**Issue**: Original tool returned plain string, missing opportunity for automatic frontend logging.
+
+**Fix**: Updated to return structured dict:
+```python
+return {
+    "success": True,
+    "terminal_command": command,
+    "terminal_output": output,
+    "asciinema_url": None
+}
+```
+
+**Benefits**: AgentBeatsExecutor automatically logs terminal interactions with special formatting when it sees `terminal_command` and `terminal_output` keys.
+
+**Verified Against**: `/Users/edison/Desktop/dev/green_agent/agentbeats/src/agentbeats/agent_executor.py:328-368`
+
+### 12.6 Added Comprehensive Imports Section
+
+**Fix**: Added complete imports at top of main.py:
+- Standard library (atexit, pathlib, typing)
+- AgentBeats SDK (logging, a2a utils)
+- Terminal-bench (dataset, terminal, handlers, parsers)
+
+All import paths verified against actual file locations in both repositories.
+
+### 12.7 Updated Kickoff Script
+
+**Fix**: Kickoff script now follows proper two-step initialization:
+1. Send battle context JSON to green agent
+2. Green agent's LLM calls `start_battle()` tool
+3. Battle proceeds with white agent evaluation
+
+**Why This Works**: The battle context message is parsed by AgentBeatsExecutor (line 450-467) and sets up internal state, then the green agent can invoke tools.
+
+---
+
+## 13. Implementation Checklist
+
+Before beginning Phase 1 implementation, verify:
+
+- [ ] **Python 3.10+** environment (verified via pyproject.toml)
+- [ ] **Docker** access for container management
+- [ ] **Environment variables** set:
+  - `OPENAI_API_KEY` or `OPENROUTER_API_KEY`
+  - `AGENTBEATS_BACKEND_URL`
+  - `DOCKER_HOST` (usually `unix:///var/run/docker.sock`)
+- [ ] **Dependencies installed**:
+  ```bash
+  pip install -e /path/to/agentbeats
+  pip install -e /path/to/terminal-bench
+  ```
+- [ ] **Terminal-bench dataset** available:
+  ```bash
+  tb tasks list  # Verify dataset access
+  ```
+
+Once environment is ready, create the file structure:
+```
+agentbeats/scenarios/terminal-bench/green_agent/
+├── green_agent_card.toml
+├── main.py
+└── requirements.txt
+```
+
+**All technical issues identified in the review have been addressed. Documents are now implementation-ready.**
