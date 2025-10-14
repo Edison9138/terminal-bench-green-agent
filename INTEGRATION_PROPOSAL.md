@@ -179,7 +179,7 @@ Terminal-Bench → AgentBeats Mapping:
 
 ### 4.1 Green Agent Implementation
 
-**Location**: `agentbeats/scenarios/terminal-bench/green_agent/`
+**Location**: `terminal-bench-green-agent/` (this repository)
 
 **Core Components:**
 
@@ -658,7 +658,7 @@ if __name__ == "__main__":
 
 **Solution**: Create adapter wrapper
 
-**Location**: `agentbeats/scenarios/terminal-bench/white_agent_adapter/`
+**Location**: `terminal-bench-green-agent/white_agent_adapter/` (this repository)
 
 ```python
 # adapter.py
@@ -691,7 +691,7 @@ class A2AWhiteAgentAdapter(BaseAgent):
 
 ### 4.3 Kickoff Script
 
-**Location**: `agentbeats/scenarios/terminal-bench/kickoff.py`
+**Location**: `terminal-bench-green-agent/kickoff.py` (this repository)
 
 ```python
 import asyncio
@@ -988,7 +988,7 @@ def test_file_operations():
 
 ## Setup
 ```bash
-cd agentbeats/scenarios/terminal-bench/green_agent
+cd terminal-bench-green-agent
 pip install -r requirements.txt
 python main.py --host 0.0.0.0 --port 9999
 ```

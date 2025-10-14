@@ -779,10 +779,13 @@ Before beginning Phase 1 implementation, verify:
 
 Once environment is ready, create the file structure:
 ```
-agentbeats/scenarios/terminal-bench/green_agent/
+terminal-bench-green-agent/
 ├── green_agent_card.toml
 ├── main.py
-└── requirements.txt
+├── requirements.txt
+├── white_agent_adapter/
+│   └── adapter.py
+└── kickoff.py
 ```
 
 **All technical issues identified in the review have been addressed. Documents are now implementation-ready.**
