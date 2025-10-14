@@ -421,8 +421,8 @@ import agentbeats as ab
 
 # Terminal-bench imports
 from terminal_bench.dataset import Dataset
-from terminal_bench.terminal.terminal import spin_up_terminal
-from terminal_bench.handlers.trial_handler import TrialHandler
+from terminal_bench.terminal.terminal import Terminal
+from terminal_bench.handlers.trial_handler import TrialHandler, TaskPaths
 from terminal_bench.parsers.parser_factory import ParserFactory
 from terminal_bench.parsers.base_parser import UnitTestStatus
 
@@ -488,7 +488,15 @@ def _run_evaluation(
     post_test_output = session.capture_pane(capture_entire=True)
 
     # 4. Parse with appropriate parser based on task configuration
-    parser = ParserFactory.get_parser(task.parser_name)
+    try:
+        parser = ParserFactory.get_parser(task.parser_name)
+    except Exception as e:
+        return {
+            "failure_mode": "PARSE_ERROR",
+            "is_resolved": False,
+            "error": f"Failed to get parser {task.parser_name}: {str(e)}",
+            "raw_output": post_test_output[:1000]  # First 1KB for debugging
+        }
 
     try:
         results = parser.parse(post_test_output)
@@ -511,7 +519,8 @@ def _run_evaluation(
         return {
             "failure_mode": "PARSE_ERROR",
             "is_resolved": False,
-            "error": str(e)
+            "error": f"Parser {task.parser_name} failed to parse output: {str(e)}",
+            "raw_output": post_test_output[:1000]  # First 1KB for debugging
         }
 
 # Battle initialization tool
@@ -544,9 +553,9 @@ async def start_battle(task_id: str, white_agent_url: str) -> str:
 
         # Get task from dataset
         task_path = None
-        for t in battle_state.dataset:
-            if t.name == task_id:
-                task_path = t
+        for path in battle_state.dataset:
+            if path.name == task_id:
+                task_path = path
                 break
 
         if not task_path:
@@ -568,8 +577,8 @@ async def start_battle(task_id: str, white_agent_url: str) -> str:
             reported_by="Terminal-Bench Green Agent"
         )
 
-        # Spin up Docker
-        battle_state.current_terminal = spin_up_terminal(
+        # Create and start Terminal instance
+        battle_state.current_terminal = Terminal(
             client_container_name=battle_state.current_trial.client_container_name,
             client_image_name=battle_state.current_trial.client_image_name,
             docker_compose_path=battle_state.current_trial.task_paths.docker_compose_path,
@@ -577,8 +586,12 @@ async def start_battle(task_id: str, white_agent_url: str) -> str:
             sessions_logs_path=battle_state.current_trial.trial_paths.sessions_path,
             no_rebuild=False,
             cleanup=True
-        ).__enter__()  # Note: Need to manage context properly
+        )
 
+        # Start the terminal (spins up Docker container)
+        battle_state.current_terminal.start()
+
+        # Create a tmux session for the agent
         battle_state.current_session = battle_state.current_terminal.create_session(
             "agent",
             as_configured_user=True
@@ -627,15 +640,16 @@ Please use these tools to complete the task, then call submit_solution().
 import atexit
 
 def cleanup_battle():
-    """Clean up Docker resources."""
+    """Clean up Docker resources and terminal sessions."""
     if battle_state.current_terminal:
         try:
-            battle_state.current_terminal.__exit__(None, None, None)
-        except:
-            pass
+            battle_state.current_terminal.stop()
+        except Exception as e:
+            print(f"Error stopping terminal: {e}")
 
     battle_state.current_terminal = None
     battle_state.current_session = None
+    battle_state.current_trial = None
 
 # Register cleanup
 atexit.register(cleanup_battle)
