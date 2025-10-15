@@ -1,0 +1,49 @@
+# Terminal-Bench Green Agent Configuration
+# Non-sensitive configuration settings - safe to commit to version control
+# For sensitive data (API keys, etc.), use .env file
+
+[project]
+name = "terminal-bench-green-agent"
+version = "1.0.0"
+
+# Green Agent Settings
+[green_agent]
+host = "0.0.0.0"
+port = 9999
+card_path = "src/green_agent/card.toml"
+
+# White Agent Settings (for testing)
+[white_agent]
+host = "0.0.0.0"
+port = 8001
+card_path = "white_agent/white_agent_card.toml"
+execution_root = "."  # Can be overridden by WHITE_AGENT_EXECUTION_ROOT env var
+
+# Terminal-Bench Evaluation Settings
+[evaluation]
+output_path = "./eval_results"
+n_attempts = 1
+n_concurrent_trials = 1
+timeout_multiplier = 1.0
+cleanup = false
+
+# Dataset Settings
+[dataset]
+name = "terminal-bench"
+version = "latest"
+# path = ""  # Optional: path to local dataset
+
+# Logging Configuration
+[logging]
+level = "INFO"
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# A2A Protocol Settings
+[a2a]
+default_input_modes = ["text"]
+default_output_modes = ["text"]
+streaming = true
+
+# Command Safety Settings
+[safety]
+blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"]

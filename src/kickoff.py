@@ -4,7 +4,7 @@ Kickoff script to send terminal-bench evaluation request to green agent.
 
 import asyncio
 import json
-from utils.a2a_client import send_message_to_agent
+from src.utils.a2a_client import send_message_to_agent
 
 
 # Configuration for terminal-bench evaluation
@@ -12,8 +12,9 @@ task_config = {
     # Use local dataset path instead of downloading from registry
     "dataset_path": "../terminal-bench/tasks",
     "task_ids": [
-        "accelerate-maximal-square",
-        "acl-permissions-inheritance",
+        "hello-world",
+        "create-bucket",
+        "csv-to-parquet",
     ],  # Specify which tasks to run
     "white_agent_url": "http://localhost:8001",  # URL of agent being evaluated
     "n_attempts": 1,

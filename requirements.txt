@@ -19,3 +19,6 @@ pydantic>=2.0.0
 # Utilities
 python-dotenv>=1.0.0
 
+# OpenAI for LLM-powered white agent
+openai>=1.0.0
+
