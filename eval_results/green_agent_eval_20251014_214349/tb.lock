@@ -1,6 +1,6 @@
 {
     "lockfile_version": "1.0",
-    "created_at": "2025-10-14T21:03:46.502812-07:00",
+    "created_at": "2025-10-14T21:43:49.834624-07:00",
     "invocation": {
         "command": "agent.py",
         "args": [
@@ -39,15 +39,16 @@
         "version": null,
         "local_path": "/Users/edison/Desktop/dev/green_agent/terminal-bench-green-agent/../terminal-bench/tasks",
         "task_ids": [
-            "accelerate-maximal-square",
-            "acl-permissions-inheritance"
+            "csv-to-parquet",
+            "hello-world",
+            "create-bucket"
         ],
         "registry_url": null,
         "local_registry_path": null
     },
     "local_config": {
         "output_path": "eval_results",
-        "run_id": "green_agent_eval_20251014_210346",
+        "run_id": "green_agent_eval_20251014_214349",
         "upload_results": false
     }
 }
