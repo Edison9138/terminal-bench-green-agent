@@ -138,6 +138,15 @@ class Settings:
         return self.get("white_agent.execution_root", os.getcwd())
 
     @property
+    def white_agent_model(self) -> str:
+        """Get white agent LLM model."""
+        # Environment variable takes precedence
+        env_model = os.getenv("WHITE_AGENT_MODEL")
+        if env_model:
+            return env_model
+        return self.get("white_agent.model", "gpt-4o-mini")
+
+    @property
     def white_agent_url(self) -> str:
         """Get white agent URL from environment or default."""
         return os.getenv("WHITE_AGENT_URL", "http://localhost:8001")
@@ -171,6 +180,15 @@ class Settings:
         """Get cleanup setting."""
         cleanup = self.get("evaluation.cleanup", False)
         return bool(cleanup)
+
+    @property
+    def eval_task_ids(self) -> list[str]:
+        """Get list of task IDs to run."""
+        task_ids = self.get("evaluation.task_ids", ["hello-world"])
+        # Handle case where it's a comma-separated string from env var
+        if isinstance(task_ids, str):
+            return [t.strip() for t in task_ids.split(",")]
+        return task_ids
 
     # Dataset Settings
     @property
@@ -206,15 +224,16 @@ class Settings:
     def log_format(self) -> str:
         """Get log format."""
         return self.get(
-            "logging.format",
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
     # Safety Settings
     @property
     def blocked_commands(self) -> list[str]:
         """Get list of blocked commands."""
-        return self.get("safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"])
+        return self.get(
+            "safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"]
+        )
 
     # A2A Settings
     @property

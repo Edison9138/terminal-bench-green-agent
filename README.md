@@ -210,26 +210,36 @@ terminal-bench-green-agent/
 
 ## Configuration
 
-### Quick Config (`src/kickoff.py`)
+### Quick Config (`config.toml`)
 
-Edit the task configuration to customize evaluation:
+Edit the configuration file to customize evaluation:
 
-```python
-task_config = {
-    "dataset_path": "../terminal-bench/tasks",  # Local tasks
-    "task_ids": [
-        "hello-world",        # Simple file creation
-        "create-bucket",      # AWS S3 bucket creation
-        "csv-to-parquet",     # Data format conversion
-    ],
-    "white_agent_url": "http://localhost:8001",
-    "n_attempts": 1,
-    "n_concurrent_trials": 1,
-    "timeout_multiplier": 1.0,
-}
+```toml
+# Terminal-Bench Evaluation Settings
+[evaluation]
+task_ids = ["hello-world", "create-bucket", "csv-to-parquet"]
+n_attempts = 1
+n_concurrent_trials = 1
+timeout_multiplier = 1.0
+
+# Dataset Settings
+[dataset]
+path = "../terminal-bench/tasks"  # Local tasks path
+
+# White Agent Settings
+[white_agent]
+port = 8001
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers!
+
+You can also override settings via environment variables (see [CONFIG.md](CONFIG.md)):
+
+```bash
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
+export DATASET_PATH="../terminal-bench/tasks"
+export WHITE_AGENT_URL="http://localhost:8001"
+```
 
 ### Full Config (`config.toml` and `.env`)
 

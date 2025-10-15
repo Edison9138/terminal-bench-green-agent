@@ -184,31 +184,36 @@ cat eval_results/green_agent_eval_*/task_001/*/results.json
 
 ### Run Specific Tasks
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "dataset_path": "../terminal-bench/tasks",  # Use local tasks
-    "task_ids": [
-        "hello-world",       # Simple file creation
-        "create-bucket",     # AWS S3 bucket
-        "csv-to-parquet",    # Data conversion
-    ],  # Actual task directory names
-    ...
-}
+```toml
+[evaluation]
+task_ids = [
+    "hello-world",       # Simple file creation
+    "create-bucket",     # AWS S3 bucket
+    "csv-to-parquet",    # Data conversion
+]
+
+[dataset]
+path = "../terminal-bench/tasks"  # Use local tasks
+```
+
+Or set via environment variable:
+
+```bash
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet,create-bucket"
+export DATASET_PATH="../terminal-bench/tasks"
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers.
 
 ### Change Agent Being Evaluated
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "white_agent_url": "http://your-agent:8001",  # Your agent URL
-    ...
-}
+```toml
+[white_agent]
+port = 8001  # Or your agent's port
 ```
 
 Or set in `.env`:
@@ -271,12 +276,17 @@ green_agent_url = "http://localhost:9998"        # Match new port
 
 ### Problem: Agent times out
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "timeout_multiplier": 2.0,  # Double the timeout
-}
+```toml
+[evaluation]
+timeout_multiplier = 2.0  # Double the timeout
+```
+
+Or set environment variable:
+
+```bash
+export EVALUATION_TIMEOUT_MULTIPLIER=2.0
 ```
 
 ### Problem: Missing OpenAI API key
@@ -299,10 +309,10 @@ cp .env.example .env
 
 2. **Run Full Evaluation**: Test on complete dataset
 
-   ```python
-   task_config = {
-       "task_ids": None,  # Run all tasks
-   }
+   ```toml
+   # In config.toml, comment out or remove task_ids to run all tasks
+   [evaluation]
+   # task_ids = ["hello-world"]  # Comment this out to run all tasks
    ```
 
 3. **Integrate with AgentBeats**: Connect to evaluation platform
@@ -325,9 +335,9 @@ What each does:
 
 ### For Configuration
 
-- `src/kickoff.py` - Change tasks, agent URL, timeouts
-- `config.toml` - Ports, paths, evaluation settings
-- `.env` - API keys, secrets (copy from `.env.example`)
+- `config.toml` - Task IDs, ports, paths, evaluation settings
+- `.env` - API keys, secrets, agent URLs (copy from `.env.example`)
+- `src/kickoff.py` - Now loads config automatically (no need to edit!)
 
 ### For Implementation
 
