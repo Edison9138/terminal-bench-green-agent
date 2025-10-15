@@ -121,7 +121,7 @@
     [4] WHITE AGENT (your implementation) @ port 8001
          │
          │  Examples:
-         │  • example_white_agent.py (simple test agent)
+         │  • llm_white_agent.py (LLM-powered agent)
          │  • OpenAI Agents SDK + to_a2a()
          │  • Google ADK + to_a2a()
          │  • AgentBeats BeatsAgent
@@ -234,8 +234,8 @@ green_agent.py                  ─→  [2] Green Agent
 green_agent_card.toml           ─→  [2] Green Agent Config
 a2a_white_agent.py             ─→  [3] A2A Adapter
 utils/a2a_client.py            ─→  [3] A2A Communication Helpers
-example_white_agent.py          ─→  [4] Example White Agent
-example_white_agent_card.toml   ─→  [4] Example White Agent Config
+llm_white_agent.py              ─→  [4] LLM-Powered White Agent
+white_agent_card.toml           ─→  [4] White Agent Config
 
 Terminal-bench (installed package):
   terminal_bench/harness/harness.py   ─→  Harness implementation
@@ -288,11 +288,11 @@ terminal-bench-green-agent/
 │
 ├── Configuration
 │   ├── green_agent_card.toml          [Green agent config]
-│   ├── example_white_agent_card.toml  [Test agent config]
+│   ├── white_agent_card.toml          [White agent config]
 │   └── requirements.txt               [Dependencies]
 │
-├── Examples
-│   └── example_white_agent.py         [Simple test agent]
+├── White Agent
+│   └── llm_white_agent.py             [LLM-powered agent]
 │
 ├── Documentation
 │   ├── README.md                      [Overview]

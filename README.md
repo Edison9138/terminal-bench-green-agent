@@ -85,12 +85,8 @@ source venv/bin/activate
 # Option 1: Using helper script (LLM-powered agent)
 ./scripts/start_white_agent.sh
 
-# Option 2: Using simple heuristic agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-
-# Option 3: Direct Python execution
-python -m white_agent --port 8001  # LLM-powered (default)
-python -m white_agent --simple --port 8001  # Simple agent
+# Option 2: Direct Python execution
+python -m white_agent --port 8001
 ```
 
 #### Terminal 2: Start Green Agent
@@ -185,16 +181,15 @@ terminal-bench-green-agent/
 │       ├── __init__.py
 │       └── a2a_client.py         # A2A client utilities
 │
-├── white_agent/                  # White agent implementations
+├── white_agent/                  # White agent implementation
 │   ├── __init__.py
 │   ├── __main__.py               # White agent entry point
-│   ├── white_agent.py            # Simple heuristic-based agent
 │   ├── llm_white_agent.py        # LLM-powered agent (GPT-4o-mini)
 │   └── white_agent_card.toml     # White agent A2A card
 │
 ├── scripts/                      # Helper scripts
 │   ├── start_green_agent.sh      # Start green agent
-│   ├── start_white_agent.sh      # Start white agent (LLM or simple)
+│   ├── start_white_agent.sh      # Start white agent
 │   ├── run_eval.sh               # Run evaluation
 │   └── check_docker.sh           # Docker environment checker
 │
@@ -239,6 +234,7 @@ task_config = {
 ### Full Config (`config.toml` and `.env`)
 
 See [CONFIG.md](CONFIG.md) for details on:
+
 - Environment variables (API keys, URLs)
 - Agent ports and hosts
 - Evaluation settings
@@ -267,7 +263,7 @@ See `SETUP.md` for detailed troubleshooting.
 
 ## Next Steps
 
-1. **Build Real White Agent** - Replace `white_agent/white_agent.py` with actual agent
+1. **Build Real White Agent** - Customize the LLM-powered agent or build your own
 2. **Add Terminal Tools** - Implement command execution capabilities
 3. **Run Full Evaluation** - Test on complete terminal-bench dataset
 4. **Integrate with AgentBeats** - Connect to evaluation platform
@@ -284,11 +280,6 @@ python -m src.green_agent --port 9999
 python -m white_agent --port 8001
 # Or use helper script
 ./scripts/start_white_agent.sh
-
-# Start white agent (simple heuristic-based)
-python -m white_agent --simple --port 8001
-# Or use helper script with mode argument
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
 
 # Run evaluation
 python -m src.kickoff

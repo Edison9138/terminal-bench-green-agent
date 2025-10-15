@@ -26,15 +26,10 @@ cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
 cd terminal-bench-green-agent
 source venv/bin/activate  # Activate venv
 
-# Option A: LLM-powered agent (default, uses GPT-4o-mini)
+# Start LLM-powered agent (uses GPT-4o-mini)
 ./scripts/start_white_agent.sh
 # Or directly:
 python -m white_agent --port 8001
-
-# Option B: Simple heuristic-based agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-# Or directly:
-python -m white_agent --simple --port 8001
 ```
 
 ### Terminal 2: Start Green Agent
@@ -150,7 +145,6 @@ terminal-bench-green-agent/
 │   └── utils/                    # A2A client
 │
 ├── white_agent/                  # White agent
-│   ├── white_agent.py            # Simple agent
 │   ├── llm_white_agent.py        # LLM agent
 │   └── white_agent_card.toml     # Agent card
 │
@@ -218,6 +212,7 @@ task_config = {
 ```
 
 Or set in `.env`:
+
 ```bash
 WHITE_AGENT_URL="http://your-agent:8001"
 ```
@@ -323,7 +318,7 @@ What each does:
 - Kickoff: Sends evaluation config
 - Green: Runs terminal-bench harness
 - Adapter: Translates BaseAgent ↔ A2A protocol
-- White: Executes bash commands to solve tasks (LLM or simple mode)
+- White: Executes bash commands to solve tasks (LLM-powered)
 ```
 
 ## Key Files to Edit
@@ -337,7 +332,6 @@ What each does:
 ### For Implementation
 
 - `white_agent/llm_white_agent.py` - LLM-powered agent
-- `white_agent/white_agent.py` - Simple heuristic agent
 - `src/adapters/a2a_white_agent.py` - Task formatting (optional)
 
 ### For Understanding

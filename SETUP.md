@@ -80,20 +80,7 @@ python -m src.kickoff
 
 **Note:** Requires `OPENAI_API_KEY` in `.env` file.
 
-### Option B: Test with Simple Heuristic Agent
-
-For testing without API keys:
-
-```bash
-# Terminal 1: Start simple white agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-# Or directly:
-python -m white_agent --simple --port 8001
-
-# Then follow same steps as Option A
-```
-
-### Option C: Test with Your Own White Agent
+### Option B: Test with Your Own White Agent
 
 If you have your own A2A-compatible agent:
 
@@ -149,6 +136,7 @@ task_config = {
 See [CONFIG.md](CONFIG.md) for full details. Key settings:
 
 **`.env` file** (copy from `.env.example`):
+
 ```bash
 OPENAI_API_KEY="sk-your-key-here"  # Required for LLM agent
 WHITE_AGENT_URL="http://localhost:8001"  # Optional override
@@ -156,6 +144,7 @@ LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
 ```
 
 **`config.toml` file**:
+
 ```toml
 [green_agent]
 port = 9999
