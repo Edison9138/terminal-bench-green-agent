@@ -11,13 +11,12 @@ regardless of the underlying implementation (OpenAI Agents SDK, LangChain, custo
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict
 
 from terminal_bench.agents.base_agent import BaseAgent, AgentResult
 from terminal_bench.agents.failure_mode import FailureMode
 from terminal_bench.terminal.tmux_session import TmuxSession
 
-from utils.a2a_client import send_message_to_agent
+from src.utils.a2a_client import send_message_to_agent
 
 logger = logging.getLogger(__name__)
 

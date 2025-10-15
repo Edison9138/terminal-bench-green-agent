@@ -4,10 +4,13 @@ This agent receives evaluation requests via A2A protocol and runs terminal-bench
 """
 
 import json
+import logging
 import re
+import tomllib
+import uvicorn
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
-from datetime import datetime
 
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.tasks import InMemoryTaskStore
@@ -18,18 +21,10 @@ from a2a.types import AgentCard, Part, TextPart, TaskState
 from a2a.utils import new_task, new_agent_text_message
 from a2a.server.tasks import TaskUpdater
 
-# Import terminal-bench components
 from terminal_bench.harness.harness import Harness
 from terminal_bench.harness.models import BenchmarkResults
-from terminal_bench.dataset.dataset import Dataset
 
-# Import our A2A white agent adapter
-from a2a_white_agent import A2AWhiteAgent
-
-import tomllib
-import uvicorn
-import sys
-import logging
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -82,18 +77,18 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Create output directory for this evaluation run
         run_id = f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        output_path = Path("./eval_results")
+        output_path = Path(settings.eval_output_path)
         output_path.mkdir(exist_ok=True)
 
-        # Extract configuration
-        white_agent_url = config.get("white_agent_url", "http://localhost:8001")
-        dataset_name = config.get("dataset_name")
-        dataset_version = config.get("dataset_version")
-        dataset_path = config.get("dataset_path")
+        # Extract configuration (with defaults from settings)
+        white_agent_url = config.get("white_agent_url", settings.white_agent_url)
+        dataset_name = config.get("dataset_name", settings.dataset_name)
+        dataset_version = config.get("dataset_version", settings.dataset_version)
+        dataset_path = config.get("dataset_path", settings.dataset_path)
         task_ids = config.get("task_ids")
-        n_attempts = config.get("n_attempts", 1)
-        n_concurrent_trials = config.get("n_concurrent_trials", 1)
-        timeout_multiplier = config.get("timeout_multiplier", 1.0)
+        n_attempts = config.get("n_attempts", settings.eval_n_attempts)
+        n_concurrent_trials = config.get("n_concurrent_trials", settings.eval_n_concurrent_trials)
+        timeout_multiplier = config.get("timeout_multiplier", settings.eval_timeout_multiplier)
 
         logger.info(f"Evaluating agent at: {white_agent_url}")
         if dataset_path:
@@ -107,7 +102,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         harness = Harness(
             output_path=output_path,
             run_id=run_id,
-            agent_import_path="a2a_white_agent:A2AWhiteAgent",
+            agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
             agent_kwargs={"agent_url": white_agent_url},
             dataset_name=dataset_name,
             dataset_version=dataset_version,
@@ -116,8 +111,8 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             n_attempts=n_attempts,
             n_concurrent_trials=n_concurrent_trials,
             global_timeout_multiplier=timeout_multiplier,
-            cleanup=False,
-            log_level=logging.INFO,
+            cleanup=settings.eval_cleanup,
+            log_level=getattr(logging, settings.log_level),
         )
 
         # Run the evaluation
@@ -295,18 +290,31 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Terminal-Bench Green Agent")
-    parser.add_argument("--port", type=int, default=9999, help="Port to run on")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to")
     parser.add_argument(
-        "--card", type=str, default="green_agent_card.toml", help="Path to agent card"
+        "--port",
+        type=int,
+        default=settings.green_agent_port,
+        help="Port to run on"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=settings.green_agent_host,
+        help="Host to bind to"
+    )
+    parser.add_argument(
+        "--card",
+        type=str,
+        default=settings.green_agent_card_path,
+        help="Path to agent card"
     )
 
     args = parser.parse_args()
 
     # Setup logging
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=getattr(logging, settings.log_level),
+        format=settings.log_format,
     )
 
     logger.info(f"Starting Terminal-Bench Green Agent on {args.host}:{args.port}")
