@@ -81,11 +81,16 @@ cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
 ```bash
 cd terminal-bench-green-agent
 source venv/bin/activate
-# Option 1: Using helper script
+
+# Option 1: Using helper script (LLM-powered agent)
 ./scripts/start_white_agent.sh
 
-# Option 2: Direct Python execution
-python -m white_agent --port 8001
+# Option 2: Using simple heuristic agent
+./scripts/start_white_agent.sh 8001 0.0.0.0 simple
+
+# Option 3: Direct Python execution
+python -m white_agent --port 8001  # LLM-powered (default)
+python -m white_agent --simple --port 8001  # Simple agent
 ```
 
 #### Terminal 2: Start Green Agent
@@ -105,10 +110,13 @@ python -m src.green_agent --port 9999
 ```bash
 cd terminal-bench-green-agent
 source venv/bin/activate
+
 # Option 1: Using helper script
 ./scripts/run_eval.sh
 
 # Option 2: Direct Python execution
+python -m src.kickoff
+# or simply
 python -m src
 ```
 
@@ -119,22 +127,26 @@ Terminal-Bench Evaluation Results
 =====================================
 Agent Under Test: http://localhost:8001
 Dataset: terminal-bench
-Tasks Evaluated: 2
+Tasks Evaluated: 3
 
 Overall Performance:
-- Accuracy: 0.00%
-- Resolved: 0/2
-- Unresolved: 2/2
+- Accuracy: 33.33%
+- Resolved: 1/3
+- Unresolved: 2/3
 
 Task Results:
 ------------------------------------------------------------
-✗ FAIL - accelerate-maximal-square
-      Failure Mode: unknown_agent_error
-✗ FAIL - acl-permissions-inheritance
-      Failure Mode: unknown_agent_error
+✓ PASS - hello-world
+      Tokens: 197 in, 63 out
+✗ FAIL - create-bucket
+      Failure Mode: unset
+      Tokens: 202 in, 200 out
+✗ FAIL - csv-to-parquet
+      Failure Mode: unset
+      Tokens: 213 in, 21 out
 ```
 
-**Note:** Tasks fail because the example white agent is just a stub. The infrastructure works correctly!
+**Note:** The LLM-powered white agent can solve simple tasks but may fail on complex ones due to iteration limits or error recovery issues. This is expected behavior for the example implementation!
 
 ## File Structure
 
@@ -143,18 +155,25 @@ terminal-bench-green-agent/
 ├── README.md                       # This file
 ├── QUICK_START.md                  # Quick start guide
 ├── SETUP.md                        # Detailed setup instructions
+├── CONFIG.md                       # Configuration guide
 ├── ARCHITECTURE.txt                # Architecture diagram
 │
 ├── requirements.txt                # Python dependencies
+├── config.toml                     # Configuration settings
+├── .env.example                    # Environment variable template
 │
 ├── src/                           # Source code
 │   ├── __init__.py
-│   ├── __main__.py                # Kickoff entry point
+│   ├── __main__.py                # Module entry point (runs kickoff)
 │   ├── kickoff.py                 # Kickoff script logic
+│   │
+│   ├── config/                   # Configuration management
+│   │   ├── __init__.py
+│   │   └── settings.py           # Settings loader (TOML + env)
 │   │
 │   ├── green_agent/              # Green agent (evaluator)
 │   │   ├── __init__.py
-│   │   ├── __main__.py
+│   │   ├── __main__.py           # Green agent entry point
 │   │   ├── agent.py              # Main green agent code
 │   │   └── card.toml             # Green agent A2A card
 │   │
@@ -166,33 +185,47 @@ terminal-bench-green-agent/
 │       ├── __init__.py
 │       └── a2a_client.py         # A2A client utilities
 │
-├── white_agent/                  # Example white agent
+├── white_agent/                  # White agent implementations
 │   ├── __init__.py
-│   ├── __main__.py
-│   ├── white_agent.py            # Example white agent (for testing)
-│   └── white_agent_card.toml     # Example agent card
+│   ├── __main__.py               # White agent entry point
+│   ├── white_agent.py            # Simple heuristic-based agent
+│   ├── llm_white_agent.py        # LLM-powered agent (GPT-4o-mini)
+│   └── white_agent_card.toml     # White agent A2A card
 │
 ├── scripts/                      # Helper scripts
 │   ├── start_green_agent.sh      # Start green agent
-│   ├── start_white_agent.sh      # Start white agent
-│   └── run_eval.sh               # Run evaluation
+│   ├── start_white_agent.sh      # Start white agent (LLM or simple)
+│   ├── run_eval.sh               # Run evaluation
+│   └── check_docker.sh           # Docker environment checker
 │
 ├── tests/                        # Unit tests
 │   └── __init__.py
 │
 └── eval_results/                 # Evaluation results (generated)
+    └── green_agent_eval_*/       # Timestamped evaluation runs
+        ├── results.json          # Overall results
+        ├── run_metadata.json     # Run metadata
+        ├── run.log               # Execution log
+        └── task_id/              # Per-task results
+            └── trial_name/
+                ├── results.json
+                ├── agent-logs/
+                └── sessions/
 ```
 
 ## Configuration
 
-Edit `src/kickoff.py` to customize evaluation:
+### Quick Config (`src/kickoff.py`)
+
+Edit the task configuration to customize evaluation:
 
 ```python
 task_config = {
     "dataset_path": "../terminal-bench/tasks",  # Local tasks
     "task_ids": [
-        "accelerate-maximal-square",  # Actual directory names
-        "acl-permissions-inheritance",
+        "hello-world",        # Simple file creation
+        "create-bucket",      # AWS S3 bucket creation
+        "csv-to-parquet",     # Data format conversion
     ],
     "white_agent_url": "http://localhost:8001",
     "n_attempts": 1,
@@ -202,6 +235,14 @@ task_config = {
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers!
+
+### Full Config (`config.toml` and `.env`)
+
+See [CONFIG.md](CONFIG.md) for details on:
+- Environment variables (API keys, URLs)
+- Agent ports and hosts
+- Evaluation settings
+- Logging configuration
 
 ## Common Issues
 
@@ -239,30 +280,41 @@ python -m src.green_agent --port 9999
 # Or use helper script
 ./scripts/start_green_agent.sh
 
-# Start white agent
+# Start white agent (LLM-powered)
 python -m white_agent --port 8001
 # Or use helper script
 ./scripts/start_white_agent.sh
 
+# Start white agent (simple heuristic-based)
+python -m white_agent --simple --port 8001
+# Or use helper script with mode argument
+./scripts/start_white_agent.sh 8001 0.0.0.0 simple
+
 # Run evaluation
-python -m src
+python -m src.kickoff
 # Or use helper script
 ./scripts/run_eval.sh
+
+# Check Docker environment
+./scripts/check_docker.sh
 
 # Run tests (when available)
 pytest tests/
 
 # Import modules in your code
-from src.green_agent import TerminalBenchGreenAgentExecutor
-from src.adapters import A2AWhiteAgent
-from src.utils import send_message_to_agent
+from src.green_agent.agent import TerminalBenchGreenAgentExecutor
+from src.adapters.a2a_white_agent import A2AWhiteAgent
+from src.utils.a2a_client import send_message_to_agent
+from src.config import settings
 ```
 
 ## Documentation
 
 - **QUICK_START.md** - Get running in 5 minutes
 - **SETUP.md** - Complete setup and configuration guide
+- **CONFIG.md** - Configuration management (TOML + env variables)
 - **ARCHITECTURE.txt** - Visual architecture diagram
+- **TROUBLESHOOTING.md** - Common issues and solutions (see eval_results for debugging)
 
 ## Key Differences from AgentBeats Integration
 
