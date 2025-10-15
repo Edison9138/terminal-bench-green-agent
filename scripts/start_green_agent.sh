@@ -17,6 +17,19 @@ echo "Host: $HOST"
 echo "Port: $PORT"
 echo ""
 
+# Kill any existing process on the port
+echo "Checking for existing processes on port $PORT..."
+EXISTING_PID=$(lsof -ti :$PORT 2>/dev/null || true)
+if [ ! -z "$EXISTING_PID" ]; then
+    echo "Found process $EXISTING_PID using port $PORT. Killing it..."
+    kill -9 $EXISTING_PID 2>/dev/null || true
+    sleep 1
+    echo "Process killed."
+else
+    echo "Port $PORT is free."
+fi
+echo ""
+
 # Activate virtual environment if it exists
 if [ -d "venv" ]; then
     source venv/bin/activate
