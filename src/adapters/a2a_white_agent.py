@@ -39,6 +39,7 @@ class A2AWhiteAgent(BaseAgent):
         """
         self.agent_url = agent_url
         self._timestamped_markers = []
+        self._current_session = None
         logger.info(f"A2AWhiteAgent initialized with agent at: {agent_url}")
 
     @classmethod
@@ -55,16 +56,24 @@ class A2AWhiteAgent(BaseAgent):
         - Information about available tools/capabilities
         - Terminal session context (if needed)
         """
+        # Get container name from session
+        container_name = session.container.name
+
         message = f"""
 You are being evaluated on the Terminal-Bench benchmark.
 
 TASK:
 {instruction}
 
-You have access to a terminal session where you can execute commands.
-When you need to run a command, use the appropriate tool to execute it.
+You have access to a terminal session inside a Docker container where you can execute commands.
+The container name is: {container_name}
+The container's working directory is /app.
+
+When you need to run a command, use the execute_bash_command tool.
+Your commands will be executed inside the Docker container using 'docker exec'.
 
 Important:
+- All commands execute inside the Docker container at /app
 - Complete the task as instructed
 - You can execute multiple commands if needed
 - When you believe the task is complete, indicate completion
@@ -166,13 +175,16 @@ Please proceed with the task.
             logger.info("Agent completed task successfully")
 
         # Create result
-        # Note: Token counting would require parsing the A2A response more carefully
-        # For now, we return None for token counts
+        # Token counting: estimate based on response length
+        # (Real implementation would track actual LLM usage)
+        estimated_input_tokens = len(formatted_message) // 4  # Rough estimate: 4 chars per token
+        estimated_output_tokens = len(response) // 4
+
         result = AgentResult(
             failure_mode=failure_mode,
             timestamped_markers=self._timestamped_markers,
-            total_input_tokens=None,
-            total_output_tokens=None,
+            total_input_tokens=estimated_input_tokens,
+            total_output_tokens=estimated_output_tokens,
         )
 
         return result
