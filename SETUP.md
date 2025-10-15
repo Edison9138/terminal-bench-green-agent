@@ -36,7 +36,19 @@ pip install -e .
 cd ../terminal-bench-green-agent
 ```
 
-### Step 2: Verify Terminal-Bench Installation
+### Step 2: Configure Environment
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env and add your OpenAI API key
+# OPENAI_API_KEY="sk-your-actual-key-here"
+```
+
+Optionally customize `config.toml` for ports, paths, and other settings.
+
+### Step 3: Verify Terminal-Bench Installation
 
 ```bash
 # Test that terminal-bench is available
@@ -45,22 +57,43 @@ terminal-bench --help
 
 ## Quick Start
 
-### Option A: Test with Example White Agent
+### Option A: Test with LLM-Powered White Agent
 
-This uses the included simple example white agent for testing the setup.
+This uses the included LLM-powered white agent (GPT-4o-mini) for realistic testing.
 
 ```bash
-# Terminal 1: Start the example white agent
-python example_white_agent.py --port 8001
+# Terminal 1: Start the LLM white agent
+./scripts/start_white_agent.sh
+# Or directly:
+python -m white_agent --port 8001
 
 # Terminal 2: Start the green agent
-python green_agent.py --port 9999
+./scripts/start_green_agent.sh
+# Or directly:
+python -m src.green_agent --port 9999
 
 # Terminal 3: Run the kickoff script
-python kickoff_terminal_bench.py
+./scripts/run_eval.sh
+# Or directly:
+python -m src.kickoff
 ```
 
-### Option B: Test with Your Own White Agent
+**Note:** Requires `OPENAI_API_KEY` in `.env` file.
+
+### Option B: Test with Simple Heuristic Agent
+
+For testing without API keys:
+
+```bash
+# Terminal 1: Start simple white agent
+./scripts/start_white_agent.sh 8001 0.0.0.0 simple
+# Or directly:
+python -m white_agent --simple --port 8001
+
+# Then follow same steps as Option A
+```
+
+### Option C: Test with Your Own White Agent
 
 If you have your own A2A-compatible agent:
 
@@ -69,22 +102,22 @@ If you have your own A2A-compatible agent:
 python your_white_agent.py --port 8001
 
 # Terminal 2: Start the green agent
-python green_agent.py --port 9999
+./scripts/start_green_agent.sh
 
-# Terminal 3: Edit kickoff script to configure evaluation
-# Edit task_config in kickoff_terminal_bench.py:
+# Terminal 3: Edit src/kickoff.py to configure evaluation
+# Update task_config:
 #   - Set task_ids to the tasks you want to run
 #   - Set white_agent_url to your agent's URL
 #   - Adjust other parameters as needed
 
-python kickoff_terminal_bench.py
+./scripts/run_eval.sh
 ```
 
 ## Configuration
 
 ### Task Configuration
 
-Edit `kickoff_terminal_bench.py` to configure the evaluation:
+Edit `src/kickoff.py` to configure the evaluation:
 
 ```python
 task_config = {
@@ -93,8 +126,9 @@ task_config = {
 
     # Task IDs are actual directory names from terminal-bench/tasks/
     "task_ids": [
-        "accelerate-maximal-square",
-        "acl-permissions-inheritance",
+        "hello-world",        # Simple file creation
+        "create-bucket",      # AWS S3 bucket creation
+        "csv-to-parquet",     # Data format conversion
     ],  # Or None for all tasks
 
     "white_agent_url": "http://localhost:8001",  # Agent being evaluated
@@ -109,6 +143,33 @@ task_config = {
 - **Task IDs**: Use actual directory names from `terminal-bench/tasks/`, not numbers
 - **Dataset**: Use `dataset_path` for local tasks (faster, no registry needed)
 - Alternatively, you can use `dataset_name` and `dataset_version` if using the registry
+
+### Environment Configuration
+
+See [CONFIG.md](CONFIG.md) for full details. Key settings:
+
+**`.env` file** (copy from `.env.example`):
+```bash
+OPENAI_API_KEY="sk-your-key-here"  # Required for LLM agent
+WHITE_AGENT_URL="http://localhost:8001"  # Optional override
+LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
+```
+
+**`config.toml` file**:
+```toml
+[green_agent]
+port = 9999
+host = "0.0.0.0"
+
+[white_agent]
+port = 8001
+host = "0.0.0.0"
+
+[evaluation]
+n_attempts = 1
+timeout_multiplier = 1.0
+output_path = "eval_results"
+```
 
 ### Agent Configuration
 

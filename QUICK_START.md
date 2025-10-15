@@ -25,7 +25,16 @@ cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
 ```bash
 cd terminal-bench-green-agent
 source venv/bin/activate  # Activate venv
-python example_white_agent.py --port 8001
+
+# Option A: LLM-powered agent (default, uses GPT-4o-mini)
+./scripts/start_white_agent.sh
+# Or directly:
+python -m white_agent --port 8001
+
+# Option B: Simple heuristic-based agent
+./scripts/start_white_agent.sh 8001 0.0.0.0 simple
+# Or directly:
+python -m white_agent --simple --port 8001
 ```
 
 ### Terminal 2: Start Green Agent
@@ -33,7 +42,11 @@ python example_white_agent.py --port 8001
 ```bash
 cd terminal-bench-green-agent
 source venv/bin/activate  # Activate venv
-python green_agent.py --port 9999
+
+# Using helper script
+./scripts/start_green_agent.sh
+# Or directly:
+python -m src.green_agent --port 9999
 ```
 
 ### Terminal 3: Run Kickoff
@@ -41,7 +54,11 @@ python green_agent.py --port 9999
 ```bash
 cd terminal-bench-green-agent
 source venv/bin/activate  # Activate venv
-python kickoff_terminal_bench.py
+
+# Using helper script
+./scripts/run_eval.sh
+# Or directly:
+python -m src.kickoff
 ```
 
 ## Expected Output
@@ -49,7 +66,16 @@ python kickoff_terminal_bench.py
 ### Terminal 1 (White Agent)
 
 ```
-Starting Example White Agent on 0.0.0.0:8001
+Starting White Agent...
+Host: 0.0.0.0
+Port: 8001
+Mode: llm
+
+Using LLM-powered agent (GPT-4o-mini)
+Starting LLM-Powered White Agent on 0.0.0.0:8001
+Using agent card: white_agent/white_agent_card.toml
+Model: gpt-4o-mini
+
 INFO:     Started server process
 INFO:     Uvicorn running on http://0.0.0.0:8001
 ```
@@ -67,7 +93,7 @@ INFO:     Uvicorn running on http://0.0.0.0:9999
 ```
 Sending evaluation request to green agent at http://localhost:9999...
 White agent being evaluated: http://localhost:8001
-Tasks to run: ['accelerate-maximal-square', 'acl-permissions-inheritance']
+Tasks to run: ['hello-world', 'create-bucket', 'csv-to-parquet']
 
 ================================================================================
 GREEN AGENT RESPONSE:
@@ -80,24 +106,28 @@ Terminal-Bench Evaluation Results
 
 Agent Under Test: http://localhost:8001
 Dataset: terminal-bench
-Tasks Evaluated: 2
+Tasks Evaluated: 3
 
 Overall Performance:
-- Accuracy: 0.00%
-- Resolved: 0/2
-- Unresolved: 2/2
+- Accuracy: 33.33%
+- Resolved: 1/3
+- Unresolved: 2/3
 
 Task Results:
 ------------------------------------------------------------
-✗ FAIL - accelerate-maximal-square
-      Failure Mode: unknown_agent_error
-✗ FAIL - acl-permissions-inheritance
-      Failure Mode: unknown_agent_error
+✓ PASS - hello-world
+      Tokens: 197 in, 63 out
+✗ FAIL - create-bucket
+      Failure Mode: unset
+      Tokens: 202 in, 200 out
+✗ FAIL - csv-to-parquet
+      Failure Mode: unset
+      Tokens: 213 in, 21 out
 
 ============================================================
 ```
 
-**Note:** Tasks fail because the example white agent is just a stub. This is expected! The infrastructure is working correctly.
+**Note:** The LLM-powered agent can solve simple tasks like hello-world but may fail on complex tasks. This is expected! The infrastructure is working correctly.
 
 ## File Structure
 
@@ -105,23 +135,32 @@ Task Results:
 terminal-bench-green-agent/
 ├── README.md                      # Overview
 ├── SETUP.md                       # Detailed setup guide
-├── UNDERSTANDING.md               # Architecture explanation
+├── CONFIG.md                      # Configuration guide
 ├── QUICK_START.md                 # This file
 │
-├── kickoff_terminal_bench.py      # Start evaluation
-├── green_agent.py                 # Evaluator agent
-├── green_agent_card.toml          # Green agent config
+├── requirements.txt               # Dependencies
+├── config.toml                    # Settings
+├── .env.example                   # Env template
 │
-├── a2a_white_agent.py            # Terminal-bench ↔ A2A adapter
+├── src/                          # Source code
+│   ├── kickoff.py                # Kickoff script
+│   ├── config/                   # Config management
+│   ├── green_agent/              # Green agent
+│   ├── adapters/                 # A2A adapter
+│   └── utils/                    # A2A client
 │
-├── example_white_agent.py         # Simple test agent
-├── example_white_agent_card.toml  # Test agent config
+├── white_agent/                  # White agent
+│   ├── white_agent.py            # Simple agent
+│   ├── llm_white_agent.py        # LLM agent
+│   └── white_agent_card.toml     # Agent card
 │
-├── utils/
-│   ├── __init__.py
-│   └── a2a_client.py             # A2A communication helpers
+├── scripts/                      # Helper scripts
+│   ├── start_green_agent.sh
+│   ├── start_white_agent.sh
+│   ├── run_eval.sh
+│   └── check_docker.sh
 │
-└── requirements.txt               # Dependencies
+└── eval_results/                 # Results
 ```
 
 ## Common Commands
@@ -151,14 +190,15 @@ cat eval_results/green_agent_eval_*/task_001/*/results.json
 
 ### Run Specific Tasks
 
-Edit `kickoff_terminal_bench.py`:
+Edit `src/kickoff.py`:
 
 ```python
 task_config = {
     "dataset_path": "../terminal-bench/tasks",  # Use local tasks
     "task_ids": [
-        "accelerate-maximal-square",
-        "acl-permissions-inheritance",
+        "hello-world",       # Simple file creation
+        "create-bucket",     # AWS S3 bucket
+        "csv-to-parquet",    # Data conversion
     ],  # Actual task directory names
     ...
 }
@@ -168,13 +208,18 @@ task_config = {
 
 ### Change Agent Being Evaluated
 
-Edit `kickoff_terminal_bench.py`:
+Edit `src/kickoff.py`:
 
 ```python
 task_config = {
     "white_agent_url": "http://your-agent:8001",  # Your agent URL
     ...
 }
+```
+
+Or set in `.env`:
+```bash
+WHITE_AGENT_URL="http://your-agent:8001"
 ```
 
 ## Troubleshooting
@@ -231,12 +276,22 @@ green_agent_url = "http://localhost:9998"        # Match new port
 
 ### Problem: Agent times out
 
-Edit `kickoff_terminal_bench.py`:
+Edit `src/kickoff.py`:
 
 ```python
 task_config = {
     "timeout_multiplier": 2.0,  # Double the timeout
 }
+```
+
+### Problem: Missing OpenAI API key
+
+```bash
+# Copy .env.example to .env
+cp .env.example .env
+
+# Edit .env and add your API key
+# OPENAI_API_KEY="sk-your-key-here"
 ```
 
 ## Next Steps
@@ -262,29 +317,33 @@ task_config = {
 
 ```
 Kickoff Script ──[A2A]──> Green Agent ──[Harness]──> A2A Adapter ──[A2A]──> White Agent
-(port any)               (port 9999)                                         (port 8001)
+(src/kickoff.py)          (port 9999)                                         (port 8001)
 
 What each does:
-- Kickoff: Sends config
+- Kickoff: Sends evaluation config
 - Green: Runs terminal-bench harness
-- Adapter: Translates BaseAgent ↔ A2A
-- White: Solves tasks
+- Adapter: Translates BaseAgent ↔ A2A protocol
+- White: Executes bash commands to solve tasks (LLM or simple mode)
 ```
 
 ## Key Files to Edit
 
 ### For Configuration
 
-- `kickoff_terminal_bench.py` - Change tasks, agent URL, timeouts
+- `src/kickoff.py` - Change tasks, agent URL, timeouts
+- `config.toml` - Ports, paths, evaluation settings
+- `.env` - API keys, secrets (copy from `.env.example`)
 
 ### For Implementation
 
-- `example_white_agent.py` - Replace with your agent
-- `a2a_white_agent.py` - Customize task formatting (optional)
+- `white_agent/llm_white_agent.py` - LLM-powered agent
+- `white_agent/white_agent.py` - Simple heuristic agent
+- `src/adapters/a2a_white_agent.py` - Task formatting (optional)
 
 ### For Understanding
 
 - `SETUP.md` - Complete setup guide
+- `CONFIG.md` - Configuration details
 - `README.md` - Project overview
 - `ARCHITECTURE.txt` - Visual architecture diagram
 
