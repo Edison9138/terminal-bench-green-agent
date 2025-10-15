@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the Example White Agent
+# Start the White Agent (LLM-powered by default)
 
 set -e
 
@@ -11,10 +11,12 @@ cd "$PROJECT_ROOT"
 # Default values
 PORT=${1:-8001}
 HOST=${2:-0.0.0.0}
+MODE=${3:-llm}  # 'llm' or 'simple'
 
-echo "Starting Example White Agent..."
+echo "Starting White Agent..."
 echo "Host: $HOST"
 echo "Port: $PORT"
+echo "Mode: $MODE"
 echo ""
 
 # Activate virtual environment if it exists
@@ -23,4 +25,10 @@ if [ -d "venv" ]; then
 fi
 
 # Run the white agent
-python -m white_agent --host "$HOST" --port "$PORT"
+if [ "$MODE" = "simple" ]; then
+    echo "Using simple (heuristic-based) agent"
+    python -m white_agent --simple --host "$HOST" --port "$PORT"
+else
+    echo "Using LLM-powered agent (GPT-4o-mini)"
+    python -m white_agent --host "$HOST" --port "$PORT"
+fi
