@@ -99,21 +99,36 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Create harness instance
         # Note: We use agent_import_path to specify our custom A2A agent adapter
-        harness = Harness(
-            output_path=output_path,
-            run_id=run_id,
-            agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
-            agent_kwargs={"agent_url": white_agent_url},
-            dataset_name=dataset_name,
-            dataset_version=dataset_version,
-            dataset_path=Path(dataset_path) if dataset_path else None,
-            task_ids=[str(tid) for tid in task_ids] if task_ids else None,
-            n_attempts=n_attempts,
-            n_concurrent_trials=n_concurrent_trials,
-            global_timeout_multiplier=timeout_multiplier,
-            cleanup=settings.eval_cleanup,
-            log_level=getattr(logging, settings.log_level),
-        )
+        # Important: If dataset_path is set, dataset_name and dataset_version must be None
+        if dataset_path:
+            harness = Harness(
+                output_path=output_path,
+                run_id=run_id,
+                agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
+                agent_kwargs={"agent_url": white_agent_url},
+                dataset_path=Path(dataset_path),
+                task_ids=[str(tid) for tid in task_ids] if task_ids else None,
+                n_attempts=n_attempts,
+                n_concurrent_trials=n_concurrent_trials,
+                global_timeout_multiplier=timeout_multiplier,
+                cleanup=settings.eval_cleanup,
+                log_level=getattr(logging, settings.log_level),
+            )
+        else:
+            harness = Harness(
+                output_path=output_path,
+                run_id=run_id,
+                agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
+                agent_kwargs={"agent_url": white_agent_url},
+                dataset_name=dataset_name,
+                dataset_version=dataset_version,
+                task_ids=[str(tid) for tid in task_ids] if task_ids else None,
+                n_attempts=n_attempts,
+                n_concurrent_trials=n_concurrent_trials,
+                global_timeout_multiplier=timeout_multiplier,
+                cleanup=settings.eval_cleanup,
+                log_level=getattr(logging, settings.log_level),
+            )
 
         # Run the evaluation
         logger.info("Running terminal-bench harness...")
