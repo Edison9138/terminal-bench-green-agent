@@ -1,0 +1,31 @@
+{
+    "run_id": "green_agent_eval_20251014_165422",
+    "uuid": "53e09bfe-4555-4804-9bb9-5cf5eb1e8422",
+    "dataset_path": "/Users/edison/Desktop/dev/green_agent/terminal-bench-green-agent/../terminal-bench/tasks",
+    "dataset_name": null,
+    "dataset_version": null,
+    "output_path": "/Users/edison/Desktop/dev/green_agent/terminal-bench-green-agent/eval_results",
+    "agent_name": "a2a-agent",
+    "no_rebuild": false,
+    "cleanup": false,
+    "log_level": 20,
+    "task_ids": [
+        "accelerate-maximal-square",
+        "acl-permissions-inheritance"
+    ],
+    "exclude_task_ids": null,
+    "n_tasks": null,
+    "n_concurrent_trials": 1,
+    "n_attempts": 1,
+    "dataset_size": 2,
+    "accuracy": 0.0,
+    "model_name": null,
+    "start_time": "2025-10-14T23:54:22.267638+00:00",
+    "end_time": "2025-10-14T23:54:22.287361+00:00",
+    "commit_hash": "392d3ebc967a8bb4f24a3cc7c8ab3b92b8350523",
+    "username": "Edison Liao",
+    "s3_bucket": null,
+    "agent_kwargs": null,
+    "pass_at_k": {},
+    "resumed_at": null
+}

@@ -1,0 +1,376 @@
+
+================================================================================
+           TERMINAL-BENCH GREEN AGENT ARCHITECTURE
+================================================================================
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│                         EVALUATION WORKFLOW                               │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+
+
+    [1] KICKOFF SCRIPT (kickoff_terminal_bench.py)
+         │
+         │  Prepares evaluation configuration:
+         │  • Which terminal-bench tasks to run
+         │  • White agent URL to evaluate
+         │  • Evaluation parameters (attempts, timeout, etc.)
+         │
+         ├─ Creates A2A message with config
+         │
+         └─ HTTP POST to http://localhost:9999/agent/messages
+                │
+                │  A2A Protocol Message:
+                │  {
+                │    "message": {
+                │      "parts": [{
+                │        "text": "Launch terminal-bench evaluation..."
+                │      }]
+                │    }
+                │  }
+                │
+                ▼
+
+    [2] GREEN AGENT (green_agent.py) @ port 9999
+         │
+         ├─ A2AStarletteApplication
+         │   └─ Exposes A2A interface
+         │
+         ├─ TerminalBenchGreenAgentExecutor
+         │   │
+         │   ├─ Receives A2A message
+         │   ├─ Parses task configuration
+         │   │
+         │   └─ Creates Terminal-Bench Harness:
+         │
+         │       harness = Harness(
+         │           agent_import_path="a2a_white_agent:A2AWhiteAgent",
+         │           agent_kwargs={"agent_url": "http://localhost:8001"},
+         │           task_ids=[1, 2, 3],
+         │           ...
+         │       )
+         │
+         │   └─ Runs: results = harness.run()
+         │
+         └───────────────────────────────────────┐
+                                                  │
+                                                  ▼
+
+    TERMINAL-BENCH HARNESS (from terminal-bench package)
+         │
+         │  For each task:
+         │
+         ├─ [a] Load task definition from dataset
+         │      • Reads YAML file
+         │      • Gets task instruction
+         │      • Gets test scripts
+         │
+         ├─ [b] Spin up Docker environment
+         │      • Creates Docker Compose environment
+         │      • Starts containers
+         │      • Creates tmux session
+         │
+         ├─ [c] Create agent instance
+         │      • Imports: a2a_white_agent.A2AWhiteAgent
+         │      • Passes: agent_url="http://localhost:8001"
+         │      │
+         │      └─ Creates A2AWhiteAgent(agent_url="http://localhost:8001")
+         │
+         ├─ [d] Run agent on task
+         │      │
+         │      └─ Calls: agent.perform_task(instruction, session, logging_dir)
+         │                │
+         │                ▼
+
+    [3] A2A WHITE AGENT ADAPTER (a2a_white_agent.py)
+         │
+         │  class A2AWhiteAgent(BaseAgent):
+         │      # Implements terminal-bench's BaseAgent interface
+         │      # Communicates with A2A agent over HTTP
+         │
+         ├─ perform_task(instruction, session, logging_dir):
+         │   │
+         │   ├─ Formats task instruction for A2A agent
+         │   │   "You are being evaluated on Terminal-Bench..."
+         │   │   "TASK: {instruction}"
+         │   │   "Use terminal tools to solve this..."
+         │   │
+         │   ├─ Sends A2A message to white agent
+         │   │   └─ await send_message_to_agent(message, agent_url)
+         │   │       │
+         │   │       └─ HTTP POST to http://localhost:8001/agent/messages
+         │   │
+         │   ├─ Receives A2A response
+         │   │   └─ Parses response.root.result.parts[0].root.text
+         │   │
+         │   └─ Returns AgentResult(failure_mode, tokens, ...)
+         │
+         └─────────────────────────────────────────┐
+                                                    │
+                A2A Protocol Message:               │
+                {                                   │
+                  "message": {                      │
+                    "parts": [{                     │
+                      "text": "TASK: Create..."     │
+                    }]                              │
+                  }                                 │
+                }                                   │
+                                                    ▼
+
+    [4] WHITE AGENT (your implementation) @ port 8001
+         │
+         │  Examples:
+         │  • example_white_agent.py (simple test agent)
+         │  • OpenAI Agents SDK + to_a2a()
+         │  • Google ADK + to_a2a()
+         │  • AgentBeats BeatsAgent
+         │  • Custom A2A implementation
+         │
+         ├─ A2AStarletteApplication
+         │   └─ Exposes A2A interface @ http://localhost:8001
+         │
+         ├─ YourAgentExecutor(AgentExecutor)
+         │   │
+         │   └─ async execute(context, event_queue):
+         │       │
+         │       ├─ Receives task instruction via A2A
+         │       │
+         │       ├─ Processes with LLM:
+         │       │   • Understands task
+         │       │   • Plans solution
+         │       │   • Generates commands
+         │       │
+         │       ├─ Executes using tools:
+         │       │   • Terminal command execution
+         │       │   • File operations
+         │       │   • etc.
+         │       │
+         │       └─ Returns solution via A2A
+         │
+         └─ Tools/MCP Servers:
+             • execute_terminal_command(cmd) → output
+             • read_file(path) → content
+             • write_file(path, content) → success
+             • ... (your tools here)
+
+                                ▲
+                                │  A2A Response:
+                                │  {
+                                │    "result": {
+                                │      "parts": [{
+                                │        "text": "Task completed..."
+                                │      }]
+                                │    }
+                                │  }
+                                │
+         ┌──────────────────────┘
+         │
+         │  Response flows back up the stack:
+         │
+         └─ [4] White Agent returns solution
+              │
+              ├─ [3] Adapter receives response, returns AgentResult
+              │   │
+              │   ├─ [Harness] Receives AgentResult
+              │   │   │
+              │   │   ├─ [e] Run tests in Docker environment
+              │   │   │     • Executes run-tests.sh
+              │   │   │     • Captures output
+              │   │   │
+              │   │   ├─ [f] Parse test results
+              │   │   │     • Check which tests passed/failed
+              │   │   │     • Determine is_resolved status
+              │   │   │
+              │   │   └─ [g] Save results
+              │   │         • Task results to JSON
+              │   │         • Terminal recordings
+              │   │         • Logs
+              │   │
+              │   └─ Repeat for all tasks
+              │
+              ├─ [2] Green Agent receives BenchmarkResults
+              │   │
+              │   ├─ Formats results message
+              │   └─ Sends A2A response with results
+              │
+              └─ [1] Kickoff Script displays results
+
+
+================================================================================
+                            KEY COMPONENTS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ COMPONENT             │ ROLE                    │ INTERFACE             │
+├───────────────────────┼─────────────────────────┼───────────────────────┤
+│ Kickoff Script        │ Initiates evaluation    │ A2A client            │
+│ Green Agent           │ Runs harness            │ A2A server (receives) │
+│ Terminal-Bench        │ Orchestrates evaluation │ Python API            │
+│ A2A Adapter           │ Protocol translator     │ BaseAgent + A2A       │
+│ White Agent           │ Solves tasks            │ A2A server (receives) │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                          COMMUNICATION FLOW
+================================================================================
+
+                  A2A             Python           A2A
+Kickoff ────────────────> Green ──────────> Adapter ──────────> White
+Script        (HTTP)      Agent   (method)          (HTTP)      Agent
+                                    ↓
+                                 Harness
+                                    ↓
+                              Docker + Tests
+
+
+================================================================================
+                            FILE MAPPING
+================================================================================
+
+kickoff_terminal_bench.py       ─→  [1] Kickoff Script
+green_agent.py                  ─→  [2] Green Agent
+green_agent_card.toml           ─→  [2] Green Agent Config
+a2a_white_agent.py             ─→  [3] A2A Adapter
+utils/a2a_client.py            ─→  [3] A2A Communication Helpers
+example_white_agent.py          ─→  [4] Example White Agent
+example_white_agent_card.toml   ─→  [4] Example White Agent Config
+
+Terminal-bench (installed package):
+  terminal_bench/harness/harness.py   ─→  Harness implementation
+  terminal_bench/agents/base_agent.py ─→  BaseAgent interface
+  terminal_bench/dataset/dataset.py   ─→  Task loading
+
+
+================================================================================
+                            DATA FLOW
+================================================================================
+
+Request:
+  JSON Config → A2A Message → Green Agent → Harness Config → A2A Adapter Config
+
+Task Execution:
+  Task YAML → Instruction → A2A Message → White Agent → Solution → A2A Response
+
+Results:
+  Test Output → Parser → TrialResults → BenchmarkResults → Formatted Message
+
+
+================================================================================
+                          PORTS & ENDPOINTS
+================================================================================
+
+Green Agent (Evaluator):
+  • Port: 9999 (configurable)
+  • Endpoints:
+    - POST /agent/messages    (receive evaluation requests)
+    - GET  /agent/card        (agent card)
+
+White Agent (Subject):
+  • Port: 8001 (configurable)
+  • Endpoints:
+    - POST /agent/messages    (receive task instructions)
+    - GET  /agent/card        (agent card)
+
+
+================================================================================
+                      DIRECTORY STRUCTURE
+================================================================================
+
+terminal-bench-green-agent/
+│
+├── Core Implementation
+│   ├── kickoff_terminal_bench.py      [Start evaluation]
+│   ├── green_agent.py                 [Evaluator agent]
+│   ├── a2a_white_agent.py            [Protocol adapter]
+│   └── utils/a2a_client.py           [A2A helpers]
+│
+├── Configuration
+│   ├── green_agent_card.toml          [Green agent config]
+│   ├── example_white_agent_card.toml  [Test agent config]
+│   └── requirements.txt               [Dependencies]
+│
+├── Examples
+│   └── example_white_agent.py         [Simple test agent]
+│
+├── Documentation
+│   ├── README.md                      [Overview]
+│   ├── SETUP.md                       [Setup guide]
+│   ├── UNDERSTANDING.md               [Architecture deep dive]
+│   ├── QUICK_START.md                 [Quick start]
+│   └── ARCHITECTURE.txt               [This file]
+│
+└── Results (created at runtime)
+    └── eval_results/
+        └── green_agent_eval_TIMESTAMP/
+            ├── results.json           [Overall results]
+            ├── run_metadata.json      [Run info]
+            └── task_001/              [Per-task results]
+                └── task_001.1.run_id/
+                    ├── results.json
+                    ├── sessions/
+                    └── agent_interaction.log
+
+
+================================================================================
+                            WHAT HAPPENS WHEN
+================================================================================
+
+When you run:  python kickoff_terminal_bench.py
+
+1. Kickoff script creates config JSON
+2. Wraps config in A2A message
+3. POSTs to green agent @ http://localhost:9999/agent/messages
+4. Green agent receives message
+5. Green agent parses config from message
+6. Green agent creates Harness instance
+7. Green agent calls harness.run()
+8. Harness loads tasks from dataset
+9. For each task:
+   a. Creates Docker environment
+   b. Creates A2AWhiteAgent instance
+   c. Calls agent.perform_task()
+   d. A2AWhiteAgent formats task instruction
+   e. A2AWhiteAgent POSTs to white agent @ http://localhost:8001/agent/messages
+   f. White agent receives task
+   g. White agent uses LLM + tools to solve
+   h. White agent returns solution via A2A
+   i. A2AWhiteAgent receives response
+   j. A2AWhiteAgent returns AgentResult to harness
+   k. Harness runs tests
+   l. Harness scores results
+   m. Harness saves results to disk
+10. Harness returns BenchmarkResults
+11. Green agent formats results
+12. Green agent returns results via A2A to kickoff script
+13. Kickoff script displays results
+
+
+================================================================================
+                          KEY DESIGN DECISIONS
+================================================================================
+
+✓ Why A2A Protocol?
+  → Standard agent-to-agent communication
+  → Allows any agent implementation (OpenAI, ADK, custom, etc.)
+  → Well-defined message format
+
+✓ Why Adapter Pattern?
+  → Terminal-bench expects BaseAgent interface
+  → White agents expose A2A interface
+  → Adapter bridges the two without modifying either
+
+✓ Why Wrap Harness Instead of Reimplementing?
+  → Terminal-bench harness is complex (Docker, tmux, testing, etc.)
+  → Reusing it ensures correctness
+  → Easier to maintain and update
+
+✓ Why Three Separate Processes?
+  → Modularity: Each component can be developed/tested independently
+  → Flexibility: Can evaluate different agents without restarting green agent
+  → Scalability: Can distribute across machines if needed
+
+
+================================================================================
+

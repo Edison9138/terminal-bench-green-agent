@@ -1,0 +1,21 @@
+# Terminal-Bench Green Agent Dependencies
+
+# Core A2A framework (correct package name!)
+a2a-sdk>=0.3.0
+
+# Terminal-bench (assuming it's installed from parent directory)
+# Install with: pip install -e ../terminal-bench
+
+# HTTP client for A2A communication
+httpx>=0.25.0
+
+# Web framework for green agent server
+uvicorn>=0.24.0
+starlette>=0.32.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+
