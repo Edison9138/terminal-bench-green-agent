@@ -226,6 +226,7 @@ battle_*.json
 green_agent.log
 runs/
 experiments/
+/eval_results/
 
 # Docker and Terminal-Bench artifacts
 docker-compose.override.yml

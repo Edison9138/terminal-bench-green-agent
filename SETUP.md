@@ -65,12 +65,12 @@ This uses the included LLM-powered white agent (GPT-4o-mini) for realistic testi
 # Terminal 1: Start the LLM white agent
 ./scripts/start_white_agent.sh
 # Or directly:
-python -m white_agent --port 8001
+python -m white_agent
 
 # Terminal 2: Start the green agent
 ./scripts/start_green_agent.sh
 # Or directly:
-python -m src.green_agent --port 9999
+python -m src.green_agent
 
 # Terminal 3: Run the kickoff script
 ./scripts/run_eval.sh
@@ -80,20 +80,7 @@ python -m src.kickoff
 
 **Note:** Requires `OPENAI_API_KEY` in `.env` file.
 
-### Option B: Test with Simple Heuristic Agent
-
-For testing without API keys:
-
-```bash
-# Terminal 1: Start simple white agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-# Or directly:
-python -m white_agent --simple --port 8001
-
-# Then follow same steps as Option A
-```
-
-### Option C: Test with Your Own White Agent
+### Option B: Test with Your Own White Agent
 
 If you have your own A2A-compatible agent:
 
@@ -104,10 +91,10 @@ python your_white_agent.py --port 8001
 # Terminal 2: Start the green agent
 ./scripts/start_green_agent.sh
 
-# Terminal 3: Edit src/kickoff.py to configure evaluation
-# Update task_config:
+# Terminal 3: Configure evaluation in config.toml
+# Edit config.toml:
 #   - Set task_ids to the tasks you want to run
-#   - Set white_agent_url to your agent's URL
+#   - Set white_agent URL/port if needed
 #   - Adjust other parameters as needed
 
 ./scripts/run_eval.sh
@@ -117,38 +104,46 @@ python your_white_agent.py --port 8001
 
 ### Task Configuration
 
-Edit `src/kickoff.py` to configure the evaluation:
+Edit `config.toml` to configure the evaluation:
 
-```python
-task_config = {
-    # Use local dataset path (recommended)
-    "dataset_path": "../terminal-bench/tasks",
+```toml
+# Terminal-Bench Evaluation Settings
+[evaluation]
+# Task IDs are actual directory names from terminal-bench/tasks/
+task_ids = [                             # REQUIRED - List of tasks to evaluate
+    "hello-world",                       # Simple file creation
+    "create-bucket",                     # AWS S3 bucket creation
+    "csv-to-parquet",                    # Data format conversion
+]
+n_attempts = 1                           # Optional: default 1 - Attempts per task
+n_concurrent_trials = 1                  # Optional: default 1 - Parallel execution
+timeout_multiplier = 1.0                 # Optional: default 1.0 - Timeout adjustment
 
-    # Task IDs are actual directory names from terminal-bench/tasks/
-    "task_ids": [
-        "hello-world",        # Simple file creation
-        "create-bucket",      # AWS S3 bucket creation
-        "csv-to-parquet",     # Data format conversion
-    ],  # Or None for all tasks
+# Dataset Settings
+[dataset]
+path = "../terminal-bench/tasks"        # REQUIRED - Path to local dataset
 
-    "white_agent_url": "http://localhost:8001",  # Agent being evaluated
-    "n_attempts": 1,                        # Attempts per task
-    "n_concurrent_trials": 1,               # Parallel execution
-    "timeout_multiplier": 1.0,              # Timeout adjustment
-}
+# White Agent Settings
+[white_agent]
+port = 8001                              # Optional: default 8001 - Port where agent is running
+card_path = "white_agent/white_agent_card.toml"  # REQUIRED
+execution_root = "."                     # REQUIRED - Command execution directory
+model = "gpt-4o-mini"                    # REQUIRED - LLM model to use
 ```
 
 **Important Notes:**
 
+- **REQUIRED fields**: Must be explicitly set - the app will fail with helpful errors if missing
 - **Task IDs**: Use actual directory names from `terminal-bench/tasks/`, not numbers
-- **Dataset**: Use `dataset_path` for local tasks (faster, no registry needed)
-- Alternatively, you can use `dataset_name` and `dataset_version` if using the registry
+- **Dataset**: Must specify `dataset.path` for local tasks
+- You can override any setting with environment variables (see CONFIG.md)
 
 ### Environment Configuration
 
 See [CONFIG.md](CONFIG.md) for full details. Key settings:
 
 **`.env` file** (copy from `.env.example`):
+
 ```bash
 OPENAI_API_KEY="sk-your-key-here"  # Required for LLM agent
 WHITE_AGENT_URL="http://localhost:8001"  # Optional override
@@ -156,19 +151,27 @@ LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
 ```
 
 **`config.toml` file**:
+
 ```toml
 [green_agent]
 port = 9999
 host = "0.0.0.0"
 
 [white_agent]
-port = 8001
-host = "0.0.0.0"
+port = 8001                                      # Optional: default 8001
+host = "0.0.0.0"                                 # Optional: default 0.0.0.0
+card_path = "white_agent/white_agent_card.toml" # REQUIRED
+execution_root = "."                             # REQUIRED
+model = "gpt-4o-mini"                            # REQUIRED
 
 [evaluation]
-n_attempts = 1
-timeout_multiplier = 1.0
-output_path = "eval_results"
+task_ids = ["hello-world"]         # REQUIRED - Tasks to run
+n_attempts = 1                      # Optional: default 1
+timeout_multiplier = 1.0            # Optional: default 1.0
+output_path = "eval_results"        # Optional: default ./eval_results
+
+[dataset]
+path = "../terminal-bench/tasks"   # REQUIRED - Local dataset path
 ```
 
 ### Agent Configuration
@@ -500,31 +503,38 @@ curl http://localhost:8001/agent/card
 
 ### Custom Datasets
 
-To evaluate on custom terminal-bench datasets:
+To evaluate on custom terminal-bench datasets, edit `config.toml`:
 
-```python
-task_config = {
-    "dataset_path": "/path/to/custom/dataset",  # Instead of dataset_name
-    "task_ids": [...],
-    ...
-}
+```toml
+[dataset]
+path = "/path/to/custom/dataset"  # REQUIRED - Custom dataset location
+
+[evaluation]
+task_ids = ["task1", "task2"]  # Custom task IDs
+```
+
+Or use environment variables:
+
+```bash
+export DATASET_PATH="/path/to/custom/dataset"
+export EVALUATION_TASK_IDS="task1,task2"
 ```
 
 ### Multiple Evaluation Runs
 
-To run multiple evaluations:
+To run multiple evaluations with different configurations:
 
-```python
-# In kickoff script
-configs = [
-    {"task_ids": [1, 2, 3], "white_agent_url": "http://localhost:8001"},
-    {"task_ids": [4, 5, 6], "white_agent_url": "http://localhost:8001"},
-]
+```bash
+# Run 1: First set of tasks
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
+python -m src.kickoff
 
-for config in configs:
-    response = await send_message_to_agent(format_config(config), green_agent_url)
-    # Process results
+# Run 2: Different set of tasks
+export EVALUATION_TASK_IDS="create-bucket,other-task"
+python -m src.kickoff
 ```
+
+Or modify `config.toml` between runs and re-run the kickoff script.
 
 ### Integration with AgentBeats
 

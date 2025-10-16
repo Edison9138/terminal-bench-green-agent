@@ -26,15 +26,10 @@ cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
 cd terminal-bench-green-agent
 source venv/bin/activate  # Activate venv
 
-# Option A: LLM-powered agent (default, uses GPT-4o-mini)
+# Start LLM-powered agent (uses GPT-4o-mini)
 ./scripts/start_white_agent.sh
 # Or directly:
-python -m white_agent --port 8001
-
-# Option B: Simple heuristic-based agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-# Or directly:
-python -m white_agent --simple --port 8001
+python -m white_agent
 ```
 
 ### Terminal 2: Start Green Agent
@@ -46,7 +41,7 @@ source venv/bin/activate  # Activate venv
 # Using helper script
 ./scripts/start_green_agent.sh
 # Or directly:
-python -m src.green_agent --port 9999
+python -m src.green_agent
 ```
 
 ### Terminal 3: Run Kickoff
@@ -150,7 +145,6 @@ terminal-bench-green-agent/
 │   └── utils/                    # A2A client
 │
 ├── white_agent/                  # White agent
-│   ├── white_agent.py            # Simple agent
 │   ├── llm_white_agent.py        # LLM agent
 │   └── white_agent_card.toml     # Agent card
 │
@@ -190,34 +184,40 @@ cat eval_results/green_agent_eval_*/task_001/*/results.json
 
 ### Run Specific Tasks
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "dataset_path": "../terminal-bench/tasks",  # Use local tasks
-    "task_ids": [
-        "hello-world",       # Simple file creation
-        "create-bucket",     # AWS S3 bucket
-        "csv-to-parquet",    # Data conversion
-    ],  # Actual task directory names
-    ...
-}
+```toml
+[evaluation]
+task_ids = [                       # REQUIRED - Tasks to evaluate
+    "hello-world",                 # Simple file creation
+    "create-bucket",               # AWS S3 bucket
+    "csv-to-parquet",              # Data conversion
+]
+
+[dataset]
+path = "../terminal-bench/tasks"  # REQUIRED - Local dataset path
+```
+
+Or set via environment variable:
+
+```bash
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet,create-bucket"
+export DATASET_PATH="../terminal-bench/tasks"
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers.
 
 ### Change Agent Being Evaluated
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "white_agent_url": "http://your-agent:8001",  # Your agent URL
-    ...
-}
+```toml
+[white_agent]
+port = 8001  # Or your agent's port
 ```
 
 Or set in `.env`:
+
 ```bash
 WHITE_AGENT_URL="http://your-agent:8001"
 ```
@@ -263,9 +263,15 @@ docker images | grep terminal-bench
 ### Problem: Port already in use
 
 ```bash
-# Change ports in commands:
-python example_white_agent.py --port 8002  # Use 8002 instead
-python green_agent.py --port 9998          # Use 9998 instead
+# Change ports using environment variables or config.toml:
+WHITE_AGENT_PORT=8002 python -m white_agent          # Use 8002 instead
+GREEN_AGENT_PORT=9998 python -m src.green_agent     # Use 9998 instead
+
+# Or update config.toml:
+# [white_agent]
+# port = 8002
+# [green_agent]
+# port = 9998
 
 # Update kickoff script:
 task_config = {
@@ -276,12 +282,17 @@ green_agent_url = "http://localhost:9998"        # Match new port
 
 ### Problem: Agent times out
 
-Edit `src/kickoff.py`:
+Edit `config.toml`:
 
-```python
-task_config = {
-    "timeout_multiplier": 2.0,  # Double the timeout
-}
+```toml
+[evaluation]
+timeout_multiplier = 2.0  # Double the timeout
+```
+
+Or set environment variable:
+
+```bash
+export EVALUATION_TIMEOUT_MULTIPLIER=2.0
 ```
 
 ### Problem: Missing OpenAI API key
@@ -304,10 +315,10 @@ cp .env.example .env
 
 2. **Run Full Evaluation**: Test on complete dataset
 
-   ```python
-   task_config = {
-       "task_ids": None,  # Run all tasks
-   }
+   ```toml
+   # In config.toml, comment out or remove task_ids to run all tasks
+   [evaluation]
+   # task_ids = ["hello-world"]  # Comment this out to run all tasks
    ```
 
 3. **Integrate with AgentBeats**: Connect to evaluation platform
@@ -323,21 +334,20 @@ What each does:
 - Kickoff: Sends evaluation config
 - Green: Runs terminal-bench harness
 - Adapter: Translates BaseAgent ↔ A2A protocol
-- White: Executes bash commands to solve tasks (LLM or simple mode)
+- White: Executes bash commands to solve tasks (LLM-powered)
 ```
 
 ## Key Files to Edit
 
 ### For Configuration
 
-- `src/kickoff.py` - Change tasks, agent URL, timeouts
-- `config.toml` - Ports, paths, evaluation settings
-- `.env` - API keys, secrets (copy from `.env.example`)
+- `config.toml` - Task IDs, ports, paths, evaluation settings
+- `.env` - API keys, secrets, agent URLs (copy from `.env.example`)
+- `src/kickoff.py` - Now loads config automatically (no need to edit!)
 
 ### For Implementation
 
 - `white_agent/llm_white_agent.py` - LLM-powered agent
-- `white_agent/white_agent.py` - Simple heuristic agent
 - `src/adapters/a2a_white_agent.py` - Task formatting (optional)
 
 ### For Understanding

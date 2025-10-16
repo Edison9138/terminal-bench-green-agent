@@ -8,42 +8,42 @@ version = "1.0.0"
 
 # Green Agent Settings
 [green_agent]
-host = "0.0.0.0"
-port = 9999
-card_path = "src/green_agent/card.toml"
+host = "0.0.0.0"                        # Optional: default 0.0.0.0
+port = 9999                              # Optional: default 9999
+card_path = "src/green_agent/card.toml" # REQUIRED
 
 # White Agent Settings (for testing)
 [white_agent]
-host = "0.0.0.0"
-port = 8001
-card_path = "white_agent/white_agent_card.toml"
-execution_root = "."  # Can be overridden by WHITE_AGENT_EXECUTION_ROOT env var
+host = "0.0.0.0"                                 # Optional: default 0.0.0.0
+port = 8001                                      # Optional: default 8001
+card_path = "white_agent/white_agent_card.toml" # REQUIRED
+execution_root = "."                             # REQUIRED (can be overridden by WHITE_AGENT_EXECUTION_ROOT env var)
+model = "gpt-4o-mini"                            # REQUIRED (OpenAI model to use, can be overridden by WHITE_AGENT_MODEL env var)
 
 # Terminal-Bench Evaluation Settings
 [evaluation]
-output_path = "./eval_results"
-n_attempts = 1
-n_concurrent_trials = 1
-timeout_multiplier = 1.0
-cleanup = false
+output_path = "./eval_results"         # Optional: default ./eval_results
+n_attempts = 1                          # Optional: default 1
+n_concurrent_trials = 1                 # Optional: default 1
+timeout_multiplier = 1.0                # Optional: default 1.0
+cleanup = false                         # Optional: default false
+task_ids = ["hello-world"]              # REQUIRED (list of task IDs to run)
 
 # Dataset Settings
 [dataset]
-name = "terminal-bench"
-version = "latest"
-# path = ""  # Optional: path to local dataset
+path = "../terminal-bench/tasks" # REQUIRED (path to local dataset, can be overridden by DATASET_PATH env var)
 
 # Logging Configuration
 [logging]
-level = "INFO"
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+level = "INFO"                                                   # Optional: default INFO
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s" # Optional: has default
 
 # A2A Protocol Settings
 [a2a]
-default_input_modes = ["text"]
-default_output_modes = ["text"]
-streaming = true
+default_input_modes = ["text"]  # Optional: default ["text"]
+default_output_modes = ["text"] # Optional: default ["text"]
+streaming = true                # Optional: default true
 
 # Command Safety Settings
 [safety]
-blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"]
+blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"] # Optional: has defaults

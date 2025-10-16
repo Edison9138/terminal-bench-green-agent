@@ -34,7 +34,7 @@ class LLMWhiteAgentExecutor(AgentExecutor):
     def __init__(self):
         """Initialize the LLM white agent."""
         self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = "gpt-4o-mini"  # Fast and capable
+        self.model = settings.white_agent_model  # Get model from config
         self.conversation_history = []
         self.container_name = None  # Will be extracted from task instruction
 
@@ -50,13 +50,13 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                         "properties": {
                             "command": {
                                 "type": "string",
-                                "description": "The bash command to execute in the container (e.g., 'ls -la', 'cat file.txt', 'echo \"text\" > file.txt')"
+                                "description": "The bash command to execute in the container (e.g., 'ls -la', 'cat file.txt', 'echo \"text\" > file.txt')",
                             }
                         },
                         "required": ["command"],
-                        "additionalProperties": False
-                    }
-                }
+                        "additionalProperties": False,
+                    },
+                },
             }
         ]
 
@@ -79,7 +79,7 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                 "command": command,
                 "returncode": 126,
                 "stdout": "",
-                "stderr": f"Command '{first_token}' is blocked for safety reasons."
+                "stderr": f"Command '{first_token}' is blocked for safety reasons.",
             }
 
         if not self.container_name:
@@ -87,17 +87,21 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                 "command": command,
                 "returncode": 1,
                 "stdout": "",
-                "stderr": "Error: Container name not set. Cannot execute command."
+                "stderr": "Error: Container name not set. Cannot execute command.",
             }
 
         try:
             # Execute command inside the Docker container using docker exec
             # Use -w to set working directory to /app
             docker_command = [
-                "docker", "exec",
-                "-w", "/app",  # Set working directory
+                "docker",
+                "exec",
+                "-w",
+                "/app",  # Set working directory
                 self.container_name,
-                "bash", "-c", command
+                "bash",
+                "-c",
+                command,
             ]
 
             process = await asyncio.create_subprocess_exec(
@@ -111,14 +115,14 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                 "command": command,
                 "returncode": process.returncode,
                 "stdout": stdout_bytes.decode("utf-8", errors="replace"),
-                "stderr": stderr_bytes.decode("utf-8", errors="replace")
+                "stderr": stderr_bytes.decode("utf-8", errors="replace"),
             }
         except Exception as e:
             return {
                 "command": command,
                 "returncode": 1,
                 "stdout": "",
-                "stderr": f"Error executing command in container: {str(e)}"
+                "stderr": f"Error executing command in container: {str(e)}",
             }
 
     async def _run_agent_loop(self, user_input: str) -> str:
@@ -133,7 +137,8 @@ class LLMWhiteAgentExecutor(AgentExecutor):
         """
         # Extract container name from user input
         import re
-        container_match = re.search(r'The container name is: (.+)', user_input)
+
+        container_match = re.search(r"The container name is: (.+)", user_input)
         if container_match:
             self.container_name = container_match.group(1).strip()
 
@@ -155,12 +160,9 @@ Guidelines:
 - When the task is complete, provide a clear summary
 - Be concise but thorough in your responses
 
-Remember: You're being evaluated on your ability to correctly complete the task!"""
+Remember: You're being evaluated on your ability to correctly complete the task!""",
             },
-            {
-                "role": "user",
-                "content": user_input
-            }
+            {"role": "user", "content": user_input},
         ]
 
         max_iterations = 15  # Prevent infinite loops
@@ -174,27 +176,33 @@ Remember: You're being evaluated on your ability to correctly complete the task!
                 model=self.model,
                 messages=messages,
                 tools=self.tools,
-                tool_choice="auto"
+                tool_choice="auto",
             )
 
             assistant_message = response.choices[0].message
 
             # Add assistant's response to messages
-            messages.append({
-                "role": "assistant",
-                "content": assistant_message.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": tc.type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        }
-                    }
-                    for tc in assistant_message.tool_calls
-                ] if assistant_message.tool_calls else None
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": assistant_message.content,
+                    "tool_calls": (
+                        [
+                            {
+                                "id": tc.id,
+                                "type": tc.type,
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,
+                                },
+                            }
+                            for tc in assistant_message.tool_calls
+                        ]
+                        if assistant_message.tool_calls
+                        else None
+                    ),
+                }
+            )
 
             # If no tool calls, we're done
             if not assistant_message.tool_calls:
@@ -212,17 +220,19 @@ Remember: You're being evaluated on your ability to correctly complete the task!
                     # Format the result for the LLM
                     result_message = f"Command: {result['command']}\n"
                     result_message += f"Exit code: {result['returncode']}\n"
-                    if result['stdout']:
+                    if result["stdout"]:
                         result_message += f"Output:\n{result['stdout']}"
-                    if result['stderr']:
+                    if result["stderr"]:
                         result_message += f"Error:\n{result['stderr']}"
 
                     # Add tool result to messages
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result_message
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result_message,
+                        }
+                    )
 
         # If we hit max iterations, return what we have
         return "Task execution completed (reached iteration limit)."
@@ -242,7 +252,9 @@ Remember: You're being evaluated on your ability to correctly complete the task!
 
         await updater.update_status(
             TaskState.working,
-            new_agent_text_message("Processing task with LLM agent...", task.context_id, task.id),
+            new_agent_text_message(
+                "Processing task with LLM agent...", task.context_id, task.id
+            ),
         )
 
         try:
@@ -291,38 +303,16 @@ def create_llm_white_agent_app(agent_card_path: str) -> A2AStarletteApplication:
 
 def main():
     """Main entry point for the LLM white agent."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="LLM-Powered White Agent")
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=settings.white_agent_port,
-        help="Port to run on"
+    print(
+        f"Starting LLM-Powered White Agent on {settings.white_agent_host}:{settings.white_agent_port}"
     )
-    parser.add_argument(
-        "--host",
-        type=str,
-        default=settings.white_agent_host,
-        help="Host to bind to"
-    )
-    parser.add_argument(
-        "--card",
-        type=str,
-        default=settings.white_agent_card_path,
-        help="Path to agent card",
-    )
-
-    args = parser.parse_args()
-
-    print(f"Starting LLM-Powered White Agent on {args.host}:{args.port}")
-    print(f"Using agent card: {args.card}")
-    print(f"Model: gpt-4o-mini")
+    print(f"Using agent card: {settings.white_agent_card_path}")
+    print(f"Model: {settings.white_agent_model}")
     print(f"Execution root: {settings.white_agent_execution_root}")
     print()
 
-    app = create_llm_white_agent_app(args.card)
-    uvicorn.run(app, host=args.host, port=args.port)
+    app = create_llm_white_agent_app(settings.white_agent_card_path)
+    uvicorn.run(app, host=settings.white_agent_host, port=settings.white_agent_port)
 
 
 if __name__ == "__main__":

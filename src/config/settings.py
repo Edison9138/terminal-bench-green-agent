@@ -108,8 +108,15 @@ class Settings:
 
     @property
     def green_agent_card_path(self) -> str:
-        """Get green agent card path."""
-        return self.get("green_agent.card_path", "src/green_agent/card.toml")
+        """Get green agent card path (required)."""
+        path = self.get("green_agent.card_path")
+        if not path:
+            raise ValueError(
+                "green_agent.card_path is required. Please set it in config.toml:\n"
+                "[green_agent]\n"
+                'card_path = "src/green_agent/card.toml"'
+            )
+        return path
 
     # White Agent Settings
     @property
@@ -125,17 +132,51 @@ class Settings:
 
     @property
     def white_agent_card_path(self) -> str:
-        """Get white agent card path."""
-        return self.get("white_agent.card_path", "white_agent/white_agent_card.toml")
+        """Get white agent card path (required)."""
+        path = self.get("white_agent.card_path")
+        if not path:
+            raise ValueError(
+                "white_agent.card_path is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                'card_path = "white_agent/white_agent_card.toml"'
+            )
+        return path
 
     @property
     def white_agent_execution_root(self) -> str:
-        """Get white agent execution root directory."""
+        """Get white agent execution root directory (required)."""
         # Environment variable takes precedence
         env_root = os.getenv("WHITE_AGENT_EXECUTION_ROOT")
         if env_root:
             return env_root
-        return self.get("white_agent.execution_root", os.getcwd())
+
+        root = self.get("white_agent.execution_root")
+        if not root:
+            raise ValueError(
+                "white_agent.execution_root is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                'execution_root = "."  # Or specify your preferred directory\n'
+                "Or set the WHITE_AGENT_EXECUTION_ROOT environment variable"
+            )
+        return root
+
+    @property
+    def white_agent_model(self) -> str:
+        """Get white agent LLM model (required)."""
+        # Environment variable takes precedence
+        env_model = os.getenv("WHITE_AGENT_MODEL")
+        if env_model:
+            return env_model
+
+        model = self.get("white_agent.model")
+        if not model:
+            raise ValueError(
+                "white_agent.model is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                'model = "gpt-4o-mini"  # Or your preferred model\n'
+                "Or set the WHITE_AGENT_MODEL environment variable"
+            )
+        return model
 
     @property
     def white_agent_url(self) -> str:
@@ -172,25 +213,40 @@ class Settings:
         cleanup = self.get("evaluation.cleanup", False)
         return bool(cleanup)
 
+    @property
+    def eval_task_ids(self) -> list[str]:
+        """Get list of task IDs to run (required)."""
+        task_ids = self.get("evaluation.task_ids")
+        if not task_ids:
+            raise ValueError(
+                "evaluation.task_ids is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                'task_ids = ["hello-world"]  # Or your preferred task IDs\n'
+                "Or set the EVALUATION_TASK_IDS environment variable"
+            )
+        # Handle case where it's a comma-separated string from env var
+        if isinstance(task_ids, str):
+            return [t.strip() for t in task_ids.split(",")]
+        return task_ids
+
     # Dataset Settings
     @property
-    def dataset_name(self) -> str:
-        """Get dataset name."""
-        return self.get("dataset.name", "terminal-bench")
-
-    @property
-    def dataset_version(self) -> str:
-        """Get dataset version."""
-        return self.get("dataset.version", "latest")
-
-    @property
-    def dataset_path(self) -> Optional[str]:
-        """Get dataset path if specified."""
+    def dataset_path(self) -> str:
+        """Get dataset path (required)."""
         # Environment variable takes precedence
         env_path = os.getenv("DATASET_PATH")
         if env_path:
             return env_path
-        return self.get("dataset.path")
+
+        path = self.get("dataset.path")
+        if not path:
+            raise ValueError(
+                "dataset.path is required. Please set it in config.toml:\n"
+                "[dataset]\n"
+                'path = "../terminal-bench/tasks"  # Or your dataset location\n'
+                "Or set the DATASET_PATH environment variable"
+            )
+        return path
 
     # Logging Settings
     @property
@@ -206,15 +262,16 @@ class Settings:
     def log_format(self) -> str:
         """Get log format."""
         return self.get(
-            "logging.format",
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
     # Safety Settings
     @property
     def blocked_commands(self) -> list[str]:
         """Get list of blocked commands."""
-        return self.get("safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"])
+        return self.get(
+            "safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"]
+        )
 
     # A2A Settings
     @property

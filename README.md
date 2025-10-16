@@ -85,12 +85,8 @@ source venv/bin/activate
 # Option 1: Using helper script (LLM-powered agent)
 ./scripts/start_white_agent.sh
 
-# Option 2: Using simple heuristic agent
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
-
-# Option 3: Direct Python execution
-python -m white_agent --port 8001  # LLM-powered (default)
-python -m white_agent --simple --port 8001  # Simple agent
+# Option 2: Direct Python execution
+python -m white_agent
 ```
 
 #### Terminal 2: Start Green Agent
@@ -102,7 +98,7 @@ source venv/bin/activate
 ./scripts/start_green_agent.sh
 
 # Option 2: Direct Python execution
-python -m src.green_agent --port 9999
+python -m src.green_agent
 ```
 
 #### Terminal 3: Run Kickoff Script
@@ -185,16 +181,15 @@ terminal-bench-green-agent/
 │       ├── __init__.py
 │       └── a2a_client.py         # A2A client utilities
 │
-├── white_agent/                  # White agent implementations
+├── white_agent/                  # White agent implementation
 │   ├── __init__.py
 │   ├── __main__.py               # White agent entry point
-│   ├── white_agent.py            # Simple heuristic-based agent
 │   ├── llm_white_agent.py        # LLM-powered agent (GPT-4o-mini)
 │   └── white_agent_card.toml     # White agent A2A card
 │
 ├── scripts/                      # Helper scripts
 │   ├── start_green_agent.sh      # Start green agent
-│   ├── start_white_agent.sh      # Start white agent (LLM or simple)
+│   ├── start_white_agent.sh      # Start white agent
 │   ├── run_eval.sh               # Run evaluation
 │   └── check_docker.sh           # Docker environment checker
 │
@@ -215,30 +210,44 @@ terminal-bench-green-agent/
 
 ## Configuration
 
-### Quick Config (`src/kickoff.py`)
+### Quick Config (`config.toml`)
 
-Edit the task configuration to customize evaluation:
+Edit the configuration file to customize evaluation:
 
-```python
-task_config = {
-    "dataset_path": "../terminal-bench/tasks",  # Local tasks
-    "task_ids": [
-        "hello-world",        # Simple file creation
-        "create-bucket",      # AWS S3 bucket creation
-        "csv-to-parquet",     # Data format conversion
-    ],
-    "white_agent_url": "http://localhost:8001",
-    "n_attempts": 1,
-    "n_concurrent_trials": 1,
-    "timeout_multiplier": 1.0,
-}
+```toml
+# Terminal-Bench Evaluation Settings (task_ids is REQUIRED)
+[evaluation]
+task_ids = ["hello-world", "create-bucket", "csv-to-parquet"]  # REQUIRED
+n_attempts = 1                                                   # Optional: default 1
+n_concurrent_trials = 1                                          # Optional: default 1
+timeout_multiplier = 1.0                                         # Optional: default 1.0
+
+# Dataset Settings (path is REQUIRED)
+[dataset]
+path = "../terminal-bench/tasks"  # REQUIRED
+
+# White Agent Settings (card_path, execution_root, model are REQUIRED)
+[white_agent]
+port = 8001                                      # Optional: default 8001
+card_path = "white_agent/white_agent_card.toml" # REQUIRED
+execution_root = "."                             # REQUIRED
+model = "gpt-4o-mini"                            # REQUIRED
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers!
 
+You can also override settings via environment variables (see [CONFIG.md](CONFIG.md)):
+
+```bash
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
+export DATASET_PATH="../terminal-bench/tasks"
+export WHITE_AGENT_URL="http://localhost:8001"
+```
+
 ### Full Config (`config.toml` and `.env`)
 
 See [CONFIG.md](CONFIG.md) for details on:
+
 - Environment variables (API keys, URLs)
 - Agent ports and hosts
 - Evaluation settings
@@ -267,7 +276,7 @@ See `SETUP.md` for detailed troubleshooting.
 
 ## Next Steps
 
-1. **Build Real White Agent** - Replace `white_agent/white_agent.py` with actual agent
+1. **Build Real White Agent** - Customize the LLM-powered agent or build your own
 2. **Add Terminal Tools** - Implement command execution capabilities
 3. **Run Full Evaluation** - Test on complete terminal-bench dataset
 4. **Integrate with AgentBeats** - Connect to evaluation platform
@@ -276,19 +285,14 @@ See `SETUP.md` for detailed troubleshooting.
 
 ```bash
 # Start green agent
-python -m src.green_agent --port 9999
+python -m src.green_agent
 # Or use helper script
 ./scripts/start_green_agent.sh
 
 # Start white agent (LLM-powered)
-python -m white_agent --port 8001
+python -m white_agent
 # Or use helper script
 ./scripts/start_white_agent.sh
-
-# Start white agent (simple heuristic-based)
-python -m white_agent --simple --port 8001
-# Or use helper script with mode argument
-./scripts/start_white_agent.sh 8001 0.0.0.0 simple
 
 # Run evaluation
 python -m src.kickoff
