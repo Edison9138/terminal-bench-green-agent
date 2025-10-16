@@ -40,7 +40,7 @@ async def send_message_to_agent(
     Raises:
         RuntimeError: If agent card cannot be resolved or other errors occur
     """
-    client = None
+    httpx_client = None
     try:
         # Create A2A client
         httpx_client = httpx.AsyncClient(timeout=timeout)
@@ -90,8 +90,8 @@ async def send_message_to_agent(
 
     finally:
         # Clean up the httpx client to prevent resource leaks
-        if client and hasattr(client, "httpx_client"):
-            await client.httpx_client.aclose()
+        if httpx_client:
+            await httpx_client.aclose()
 
 
 async def check_agent_health(agent_url: str) -> bool:
