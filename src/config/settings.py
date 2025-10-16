@@ -192,16 +192,6 @@ class Settings:
 
     # Dataset Settings
     @property
-    def dataset_name(self) -> str:
-        """Get dataset name."""
-        return self.get("dataset.name", "terminal-bench")
-
-    @property
-    def dataset_version(self) -> str:
-        """Get dataset version."""
-        return self.get("dataset.version", "latest")
-
-    @property
     def dataset_path(self) -> Optional[str]:
         """Get dataset path if specified."""
         # Environment variable takes precedence

@@ -62,8 +62,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         Args:
             config: Dictionary containing evaluation configuration
-                - dataset_name: Name of the dataset
-                - dataset_version: Version of the dataset
+                - dataset_path: Path to the local dataset
                 - task_ids: List of task IDs to run
                 - white_agent_url: URL of the agent being evaluated
                 - n_attempts: Number of attempts per task
@@ -82,53 +81,35 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Extract configuration (with defaults from settings)
         white_agent_url = config.get("white_agent_url", settings.white_agent_url)
-        dataset_name = config.get("dataset_name", settings.dataset_name)
-        dataset_version = config.get("dataset_version", settings.dataset_version)
         dataset_path = config.get("dataset_path", settings.dataset_path)
         task_ids = config.get("task_ids")
         n_attempts = config.get("n_attempts", settings.eval_n_attempts)
-        n_concurrent_trials = config.get("n_concurrent_trials", settings.eval_n_concurrent_trials)
-        timeout_multiplier = config.get("timeout_multiplier", settings.eval_timeout_multiplier)
+        n_concurrent_trials = config.get(
+            "n_concurrent_trials", settings.eval_n_concurrent_trials
+        )
+        timeout_multiplier = config.get(
+            "timeout_multiplier", settings.eval_timeout_multiplier
+        )
 
         logger.info(f"Evaluating agent at: {white_agent_url}")
-        if dataset_path:
-            logger.info(f"Dataset path: {dataset_path}")
-        else:
-            logger.info(f"Dataset: {dataset_name} (version: {dataset_version})")
+        logger.info(f"Dataset path: {dataset_path}")
         logger.info(f"Task IDs: {task_ids}")
 
         # Create harness instance
         # Note: We use agent_import_path to specify our custom A2A agent adapter
-        # Important: If dataset_path is set, dataset_name and dataset_version must be None
-        if dataset_path:
-            harness = Harness(
-                output_path=output_path,
-                run_id=run_id,
-                agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
-                agent_kwargs={"agent_url": white_agent_url},
-                dataset_path=Path(dataset_path),
-                task_ids=[str(tid) for tid in task_ids] if task_ids else None,
-                n_attempts=n_attempts,
-                n_concurrent_trials=n_concurrent_trials,
-                global_timeout_multiplier=timeout_multiplier,
-                cleanup=settings.eval_cleanup,
-                log_level=getattr(logging, settings.log_level),
-            )
-        else:
-            harness = Harness(
-                output_path=output_path,
-                run_id=run_id,
-                agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
-                agent_kwargs={"agent_url": white_agent_url},
-                dataset_name=dataset_name,
-                dataset_version=dataset_version,
-                task_ids=[str(tid) for tid in task_ids] if task_ids else None,
-                n_attempts=n_attempts,
-                n_concurrent_trials=n_concurrent_trials,
-                global_timeout_multiplier=timeout_multiplier,
-                cleanup=settings.eval_cleanup,
-                log_level=getattr(logging, settings.log_level),
-            )
+        harness = Harness(
+            output_path=output_path,
+            run_id=run_id,
+            agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
+            agent_kwargs={"agent_url": white_agent_url},
+            dataset_path=Path(dataset_path),
+            task_ids=[str(tid) for tid in task_ids] if task_ids else None,
+            n_attempts=n_attempts,
+            n_concurrent_trials=n_concurrent_trials,
+            global_timeout_multiplier=timeout_multiplier,
+            cleanup=settings.eval_cleanup,
+            log_level=getattr(logging, settings.log_level),
+        )
 
         # Run the evaluation
         logger.info("Running terminal-bench harness...")
@@ -306,22 +287,16 @@ def main():
 
     parser = argparse.ArgumentParser(description="Terminal-Bench Green Agent")
     parser.add_argument(
-        "--port",
-        type=int,
-        default=settings.green_agent_port,
-        help="Port to run on"
+        "--port", type=int, default=settings.green_agent_port, help="Port to run on"
     )
     parser.add_argument(
-        "--host",
-        type=str,
-        default=settings.green_agent_host,
-        help="Host to bind to"
+        "--host", type=str, default=settings.green_agent_host, help="Host to bind to"
     )
     parser.add_argument(
         "--card",
         type=str,
         default=settings.green_agent_card_path,
-        help="Path to agent card"
+        help="Path to agent card",
     )
 
     args = parser.parse_args()

@@ -31,9 +31,7 @@ task_ids = ["hello-world"]     # List of task IDs to run
 
 # Dataset Settings
 [dataset]
-name = "terminal-bench"
-version = "latest"
-path = "../terminal-bench/tasks" # Optional: path to local dataset
+path = "../terminal-bench/tasks" # Path to local dataset
 
 # Logging Configuration
 [logging]
