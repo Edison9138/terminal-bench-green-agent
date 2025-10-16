@@ -188,14 +188,14 @@ Edit `config.toml`:
 
 ```toml
 [evaluation]
-task_ids = [
-    "hello-world",       # Simple file creation
-    "create-bucket",     # AWS S3 bucket
-    "csv-to-parquet",    # Data conversion
+task_ids = [                       # REQUIRED - Tasks to evaluate
+    "hello-world",                 # Simple file creation
+    "create-bucket",               # AWS S3 bucket
+    "csv-to-parquet",              # Data conversion
 ]
 
 [dataset]
-path = "../terminal-bench/tasks"  # Use local tasks
+path = "../terminal-bench/tasks"  # REQUIRED - Local dataset path
 ```
 
 Or set via environment variable:

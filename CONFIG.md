@@ -46,8 +46,14 @@ This project uses a hybrid configuration approach with TOML and environment vari
 Environment variables override TOML settings:
 
 1. **Environment variables** (highest priority)
-2. **config.toml** defaults
-3. **Code defaults** (lowest priority)
+2. **config.toml** settings
+3. **Code defaults** (lowest priority, only for optional settings)
+
+## Required vs Optional Fields
+
+**REQUIRED fields** must be explicitly set in `config.toml` or via environment variables. The application will fail with a helpful error message if they're missing.
+
+**Optional fields** have sensible defaults and don't need to be specified unless you want to override the default behavior.
 
 ## Usage in Code
 
@@ -79,21 +85,32 @@ custom_value = settings.get("custom.nested.key", "default_value")
 - `WHITE_AGENT_EXECUTION_ROOT` - Root directory for command execution
 - `LOG_LEVEL` - Override logging level (DEBUG, INFO, WARNING, ERROR)
 
-### Ports (in `config.toml`)
+### Green Agent Settings (in `config.toml`)
 
-- `green_agent.port` - Green agent server port (default: 9999)
-- `white_agent.port` - White agent server port (default: 8001)
+- `green_agent.host` - Optional (default: "0.0.0.0") - Host to bind to
+- `green_agent.port` - Optional (default: 9999) - Server port
+- `green_agent.card_path` - **REQUIRED** - Path to agent card file
+
+### White Agent Settings (in `config.toml`)
+
+- `white_agent.host` - Optional (default: "0.0.0.0") - Host to bind to
+- `white_agent.port` - Optional (default: 8001) - Server port
+- `white_agent.card_path` - **REQUIRED** - Path to agent card file
+- `white_agent.execution_root` - **REQUIRED** - Root directory for command execution (can be overridden by `WHITE_AGENT_EXECUTION_ROOT` env var)
+- `white_agent.model` - **REQUIRED** - LLM model to use (can be overridden by `WHITE_AGENT_MODEL` env var)
 
 ### Evaluation (in `config.toml`)
 
-- `evaluation.task_ids` - List of task IDs to run (e.g., ["hello-world", "csv-to-parquet"])
-- `evaluation.n_attempts` - Number of attempts per task
-- `evaluation.timeout_multiplier` - Timeout multiplier
-- `evaluation.output_path` - Where to save results
+- `evaluation.task_ids` - **REQUIRED** - List of task IDs to run (e.g., ["hello-world", "csv-to-parquet"])
+- `evaluation.n_attempts` - Optional (default: 1) - Number of attempts per task
+- `evaluation.n_concurrent_trials` - Optional (default: 1) - Number of concurrent trials
+- `evaluation.timeout_multiplier` - Optional (default: 1.0) - Timeout multiplier
+- `evaluation.output_path` - Optional (default: "./eval_results") - Where to save results
+- `evaluation.cleanup` - Optional (default: false) - Whether to cleanup after evaluation
 
 ### Dataset (in `config.toml`)
 
-- `dataset.path` - Path to local terminal-bench tasks (e.g., "../terminal-bench/tasks")
+- `dataset.path` - **REQUIRED** - Path to local terminal-bench tasks (e.g., "../terminal-bench/tasks")
 
 ## Security Best Practices
 

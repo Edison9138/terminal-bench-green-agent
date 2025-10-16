@@ -110,28 +110,32 @@ Edit `config.toml` to configure the evaluation:
 # Terminal-Bench Evaluation Settings
 [evaluation]
 # Task IDs are actual directory names from terminal-bench/tasks/
-task_ids = [
-    "hello-world",        # Simple file creation
-    "create-bucket",      # AWS S3 bucket creation
-    "csv-to-parquet",     # Data format conversion
+task_ids = [                             # REQUIRED - List of tasks to evaluate
+    "hello-world",                       # Simple file creation
+    "create-bucket",                     # AWS S3 bucket creation
+    "csv-to-parquet",                    # Data format conversion
 ]
-n_attempts = 1                  # Attempts per task
-n_concurrent_trials = 1         # Parallel execution
-timeout_multiplier = 1.0        # Timeout adjustment
+n_attempts = 1                           # Optional: default 1 - Attempts per task
+n_concurrent_trials = 1                  # Optional: default 1 - Parallel execution
+timeout_multiplier = 1.0                 # Optional: default 1.0 - Timeout adjustment
 
 # Dataset Settings
 [dataset]
-path = "../terminal-bench/tasks"  # Use local dataset path (recommended)
+path = "../terminal-bench/tasks"        # REQUIRED - Path to local dataset
 
 # White Agent Settings
 [white_agent]
-port = 8001  # Port where agent is running
+port = 8001                              # Optional: default 8001 - Port where agent is running
+card_path = "white_agent/white_agent_card.toml"  # REQUIRED
+execution_root = "."                     # REQUIRED - Command execution directory
+model = "gpt-4o-mini"                    # REQUIRED - LLM model to use
 ```
 
 **Important Notes:**
 
+- **REQUIRED fields**: Must be explicitly set - the app will fail with helpful errors if missing
 - **Task IDs**: Use actual directory names from `terminal-bench/tasks/`, not numbers
-- **Dataset**: Use `dataset.path` for local tasks (faster, no registry needed)
+- **Dataset**: Must specify `dataset.path` for local tasks
 - You can override any setting with environment variables (see CONFIG.md)
 
 ### Environment Configuration
@@ -154,17 +158,20 @@ port = 9999
 host = "0.0.0.0"
 
 [white_agent]
-port = 8001
-host = "0.0.0.0"
+port = 8001                                      # Optional: default 8001
+host = "0.0.0.0"                                 # Optional: default 0.0.0.0
+card_path = "white_agent/white_agent_card.toml" # REQUIRED
+execution_root = "."                             # REQUIRED
+model = "gpt-4o-mini"                            # REQUIRED
 
 [evaluation]
-task_ids = ["hello-world"]  # Tasks to run
-n_attempts = 1
-timeout_multiplier = 1.0
-output_path = "eval_results"
+task_ids = ["hello-world"]         # REQUIRED - Tasks to run
+n_attempts = 1                      # Optional: default 1
+timeout_multiplier = 1.0            # Optional: default 1.0
+output_path = "eval_results"        # Optional: default ./eval_results
 
 [dataset]
-path = "../terminal-bench/tasks"  # Local dataset path
+path = "../terminal-bench/tasks"   # REQUIRED - Local dataset path
 ```
 
 ### Agent Configuration
@@ -500,7 +507,7 @@ To evaluate on custom terminal-bench datasets, edit `config.toml`:
 
 ```toml
 [dataset]
-path = "/path/to/custom/dataset"  # Custom dataset location
+path = "/path/to/custom/dataset"  # REQUIRED - Custom dataset location
 
 [evaluation]
 task_ids = ["task1", "task2"]  # Custom task IDs

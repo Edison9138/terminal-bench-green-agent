@@ -215,20 +215,23 @@ terminal-bench-green-agent/
 Edit the configuration file to customize evaluation:
 
 ```toml
-# Terminal-Bench Evaluation Settings
+# Terminal-Bench Evaluation Settings (task_ids is REQUIRED)
 [evaluation]
-task_ids = ["hello-world", "create-bucket", "csv-to-parquet"]
-n_attempts = 1
-n_concurrent_trials = 1
-timeout_multiplier = 1.0
+task_ids = ["hello-world", "create-bucket", "csv-to-parquet"]  # REQUIRED
+n_attempts = 1                                                   # Optional: default 1
+n_concurrent_trials = 1                                          # Optional: default 1
+timeout_multiplier = 1.0                                         # Optional: default 1.0
 
-# Dataset Settings
+# Dataset Settings (path is REQUIRED)
 [dataset]
-path = "../terminal-bench/tasks"  # Local tasks path
+path = "../terminal-bench/tasks"  # REQUIRED
 
-# White Agent Settings
+# White Agent Settings (card_path, execution_root, model are REQUIRED)
 [white_agent]
-port = 8001
+port = 8001                                      # Optional: default 8001
+card_path = "white_agent/white_agent_card.toml" # REQUIRED
+execution_root = "."                             # REQUIRED
+model = "gpt-4o-mini"                            # REQUIRED
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers!
