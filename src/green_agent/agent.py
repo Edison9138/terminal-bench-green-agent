@@ -283,36 +283,20 @@ def create_green_agent_app(agent_card_path: str) -> A2AStarletteApplication:
 
 def main():
     """Main entry point for the green agent."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Terminal-Bench Green Agent")
-    parser.add_argument(
-        "--port", type=int, default=settings.green_agent_port, help="Port to run on"
-    )
-    parser.add_argument(
-        "--host", type=str, default=settings.green_agent_host, help="Host to bind to"
-    )
-    parser.add_argument(
-        "--card",
-        type=str,
-        default=settings.green_agent_card_path,
-        help="Path to agent card",
-    )
-
-    args = parser.parse_args()
-
     # Setup logging
     logging.basicConfig(
         level=getattr(logging, settings.log_level),
         format=settings.log_format,
     )
 
-    logger.info(f"Starting Terminal-Bench Green Agent on {args.host}:{args.port}")
-    logger.info(f"Using agent card: {args.card}")
+    logger.info(
+        f"Starting Terminal-Bench Green Agent on {settings.green_agent_host}:{settings.green_agent_port}"
+    )
+    logger.info(f"Using agent card: {settings.green_agent_card_path}")
 
     # Create and run app
-    app = create_green_agent_app(args.card)
-    uvicorn.run(app, host=args.host, port=args.port)
+    app = create_green_agent_app(settings.green_agent_card_path)
+    uvicorn.run(app, host=settings.green_agent_host, port=settings.green_agent_port)
 
 
 if __name__ == "__main__":

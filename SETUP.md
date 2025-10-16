@@ -65,12 +65,12 @@ This uses the included LLM-powered white agent (GPT-4o-mini) for realistic testi
 # Terminal 1: Start the LLM white agent
 ./scripts/start_white_agent.sh
 # Or directly:
-python -m white_agent --port 8001
+python -m white_agent
 
 # Terminal 2: Start the green agent
 ./scripts/start_green_agent.sh
 # Or directly:
-python -m src.green_agent --port 9999
+python -m src.green_agent
 
 # Terminal 3: Run the kickoff script
 ./scripts/run_eval.sh

@@ -303,32 +303,16 @@ def create_llm_white_agent_app(agent_card_path: str) -> A2AStarletteApplication:
 
 def main():
     """Main entry point for the LLM white agent."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="LLM-Powered White Agent")
-    parser.add_argument(
-        "--port", type=int, default=settings.white_agent_port, help="Port to run on"
+    print(
+        f"Starting LLM-Powered White Agent on {settings.white_agent_host}:{settings.white_agent_port}"
     )
-    parser.add_argument(
-        "--host", type=str, default=settings.white_agent_host, help="Host to bind to"
-    )
-    parser.add_argument(
-        "--card",
-        type=str,
-        default=settings.white_agent_card_path,
-        help="Path to agent card",
-    )
-
-    args = parser.parse_args()
-
-    print(f"Starting LLM-Powered White Agent on {args.host}:{args.port}")
-    print(f"Using agent card: {args.card}")
+    print(f"Using agent card: {settings.white_agent_card_path}")
     print(f"Model: {settings.white_agent_model}")
     print(f"Execution root: {settings.white_agent_execution_root}")
     print()
 
-    app = create_llm_white_agent_app(args.card)
-    uvicorn.run(app, host=args.host, port=args.port)
+    app = create_llm_white_agent_app(settings.white_agent_card_path)
+    uvicorn.run(app, host=settings.white_agent_host, port=settings.white_agent_port)
 
 
 if __name__ == "__main__":

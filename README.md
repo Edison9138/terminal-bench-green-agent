@@ -86,7 +86,7 @@ source venv/bin/activate
 ./scripts/start_white_agent.sh
 
 # Option 2: Direct Python execution
-python -m white_agent --port 8001
+python -m white_agent
 ```
 
 #### Terminal 2: Start Green Agent
@@ -98,7 +98,7 @@ source venv/bin/activate
 ./scripts/start_green_agent.sh
 
 # Option 2: Direct Python execution
-python -m src.green_agent --port 9999
+python -m src.green_agent
 ```
 
 #### Terminal 3: Run Kickoff Script
@@ -285,12 +285,12 @@ See `SETUP.md` for detailed troubleshooting.
 
 ```bash
 # Start green agent
-python -m src.green_agent --port 9999
+python -m src.green_agent
 # Or use helper script
 ./scripts/start_green_agent.sh
 
 # Start white agent (LLM-powered)
-python -m white_agent --port 8001
+python -m white_agent
 # Or use helper script
 ./scripts/start_white_agent.sh
 

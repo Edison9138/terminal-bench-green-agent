@@ -164,3 +164,28 @@ LOG_LEVEL="DEBUG"
 - Make sure `.env` exists (copy from `.env.example`)
 - Check the key name matches exactly (case-sensitive)
 - Verify no extra quotes or spaces in `.env` file
+
+## Running the Agents
+
+The agents use configuration from `config.toml` and `.env` files. No command-line arguments are needed:
+
+```bash
+# Start agents using config.toml settings
+python -m src.green_agent   # Uses settings.green_agent_port, settings.green_agent_host
+python -m white_agent        # Uses settings.white_agent_port, settings.white_agent_host
+```
+
+**Override at runtime using environment variables:**
+
+```bash
+# Override port/host for a single run
+GREEN_AGENT_PORT=9998 python -m src.green_agent
+WHITE_AGENT_PORT=8002 python -m white_agent
+```
+
+**Or use the helper scripts:**
+
+```bash
+./scripts/start_green_agent.sh    # Can pass port/host as arguments
+./scripts/start_white_agent.sh    # ./scripts/start_white_agent.sh 8002 0.0.0.0
+```

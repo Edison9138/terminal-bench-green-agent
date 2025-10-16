@@ -29,7 +29,7 @@ source venv/bin/activate  # Activate venv
 # Start LLM-powered agent (uses GPT-4o-mini)
 ./scripts/start_white_agent.sh
 # Or directly:
-python -m white_agent --port 8001
+python -m white_agent
 ```
 
 ### Terminal 2: Start Green Agent
@@ -41,7 +41,7 @@ source venv/bin/activate  # Activate venv
 # Using helper script
 ./scripts/start_green_agent.sh
 # Or directly:
-python -m src.green_agent --port 9999
+python -m src.green_agent
 ```
 
 ### Terminal 3: Run Kickoff
@@ -263,9 +263,15 @@ docker images | grep terminal-bench
 ### Problem: Port already in use
 
 ```bash
-# Change ports in commands:
-python example_white_agent.py --port 8002  # Use 8002 instead
-python green_agent.py --port 9998          # Use 9998 instead
+# Change ports using environment variables or config.toml:
+WHITE_AGENT_PORT=8002 python -m white_agent          # Use 8002 instead
+GREEN_AGENT_PORT=9998 python -m src.green_agent     # Use 9998 instead
+
+# Or update config.toml:
+# [white_agent]
+# port = 8002
+# [green_agent]
+# port = 9998
 
 # Update kickoff script:
 task_config = {
