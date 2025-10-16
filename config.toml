@@ -17,7 +17,6 @@ card_path = "src/green_agent/card.toml" # REQUIRED
 host = "0.0.0.0"                                 # Optional: default 0.0.0.0
 port = 8001                                      # Optional: default 8001
 card_path = "white_agent/white_agent_card.toml" # REQUIRED
-execution_root = "."                             # REQUIRED (can be overridden by WHITE_AGENT_EXECUTION_ROOT env var)
 model = "gpt-4o-mini"                            # REQUIRED (OpenAI model to use, can be overridden by WHITE_AGENT_MODEL env var)
 
 # Terminal-Bench Evaluation Settings
@@ -29,9 +28,11 @@ timeout_multiplier = 1.0                # Optional: default 1.0
 cleanup = false                         # Optional: default false
 task_ids = ["hello-world"]              # REQUIRED (list of task IDs to run)
 
-# Dataset Settings
-[dataset]
-path = "../terminal-bench/tasks" # REQUIRED (path to local dataset, can be overridden by DATASET_PATH env var)
+# Dataset Settings (optional - terminal-bench manages datasets automatically)
+# [dataset]
+# path = "path/to/terminal-bench/tasks" # Optional - only needed for custom datasets
+# name = "terminal-bench-core"          # Optional - dataset name for automatic management
+# version = "head"                      # Optional - dataset version for automatic management
 
 # Logging Configuration
 [logging]

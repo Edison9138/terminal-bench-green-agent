@@ -96,7 +96,6 @@ custom_value = settings.get("custom.nested.key", "default_value")
 - `white_agent.host` - Optional (default: "0.0.0.0") - Host to bind to
 - `white_agent.port` - Optional (default: 8001) - Server port
 - `white_agent.card_path` - **REQUIRED** - Path to agent card file
-- `white_agent.execution_root` - **REQUIRED** - Root directory for command execution (can be overridden by `WHITE_AGENT_EXECUTION_ROOT` env var)
 - `white_agent.model` - **REQUIRED** - LLM model to use (can be overridden by `WHITE_AGENT_MODEL` env var)
 
 ### Evaluation (in `config.toml`)
@@ -110,7 +109,8 @@ custom_value = settings.get("custom.nested.key", "default_value")
 
 ### Dataset (in `config.toml`)
 
-- `dataset.path` - **REQUIRED** - Path to local terminal-bench tasks (e.g., "../terminal-bench/tasks")
+- `dataset.path` - **OPTIONAL** - Path to custom dataset (only needed for custom datasets)
+- **Note**: Terminal-bench manages standard datasets automatically - no configuration needed!
 
 ## Security Best Practices
 
@@ -133,8 +133,8 @@ task_ids = ["hello-world", "csv-to-parquet"]
 n_attempts = 3
 timeout_multiplier = 1.5
 
-[dataset]
-path = "../terminal-bench/tasks"
+# Dataset is managed automatically by terminal-bench
+# Only specify dataset.path for custom datasets
 ```
 
 **.env:**

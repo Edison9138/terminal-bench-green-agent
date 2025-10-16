@@ -70,8 +70,8 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies (includes a2a-sdk, NOT a2a!)
 pip install -r requirements.txt
 
-# Install terminal-bench
-cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
+# Download terminal-bench dataset (one-time setup)
+terminal-bench datasets download --dataset terminal-bench-core
 ```
 
 ### Run Evaluation
@@ -222,25 +222,23 @@ n_attempts = 1                                                   # Optional: def
 n_concurrent_trials = 1                                          # Optional: default 1
 timeout_multiplier = 1.0                                         # Optional: default 1.0
 
-# Dataset Settings (path is REQUIRED)
-[dataset]
-path = "../terminal-bench/tasks"  # REQUIRED
+# Dataset Settings (optional - terminal-bench manages datasets automatically)
+# [dataset]
+# path = "path/to/custom/dataset"  # Optional - only needed for custom datasets
 
-# White Agent Settings (card_path, execution_root, model are REQUIRED)
+# White Agent Settings (card_path and model are REQUIRED)
 [white_agent]
 port = 8001                                      # Optional: default 8001
 card_path = "white_agent/white_agent_card.toml" # REQUIRED
-execution_root = "."                             # REQUIRED
 model = "gpt-4o-mini"                            # REQUIRED
 ```
 
-**Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers!
+**Important:** Task IDs are directory names from terminal-bench tasks, not numbers! Terminal-bench manages datasets automatically.
 
 You can also override settings via environment variables (see [CONFIG.md](CONFIG.md)):
 
 ```bash
 export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
-export DATASET_PATH="../terminal-bench/tasks"
 export WHITE_AGENT_URL="http://localhost:8001"
 ```
 

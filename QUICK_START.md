@@ -11,11 +11,11 @@ cd terminal-bench-green-agent
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies (including correct a2a-sdk)
+# Install dependencies
 pip install -r requirements.txt
 
-# Install terminal-bench
-cd ../terminal-bench && pip install -e . && cd ../terminal-bench-green-agent
+# Download terminal-bench dataset (one-time setup)
+terminal-bench datasets download --dataset terminal-bench-core
 ```
 
 ## Run Test Evaluation
@@ -194,15 +194,15 @@ task_ids = [                       # REQUIRED - Tasks to evaluate
     "csv-to-parquet",              # Data conversion
 ]
 
-[dataset]
-path = "../terminal-bench/tasks"  # REQUIRED - Local dataset path
+# Dataset is managed automatically by terminal-bench
+# No need to specify dataset.path
 ```
 
 Or set via environment variable:
 
 ```bash
 export EVALUATION_TASK_IDS="hello-world,csv-to-parquet,create-bucket"
-export DATASET_PATH="../terminal-bench/tasks"
+export DATASET_PATH="path/to/terminal-bench/tasks"
 ```
 
 **Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers.
@@ -236,9 +236,10 @@ pip install a2a-sdk openai-agents
 
 ### Problem: Can't import terminal_bench
 
+Make sure terminal-bench is installed in your environment:
+
 ```bash
-cd ../terminal-bench
-pip install -e .
+pip install terminal-bench
 ```
 
 ### Problem: Agent card validation errors
@@ -359,8 +360,8 @@ What each does:
 
 ## Resources
 
-- Terminal-Bench: `/Users/edison/Desktop/dev/green_agent/terminal-bench/`
-- AgentBeats Examples: `/Users/edison/Desktop/dev/green_agent/agentbeats/scenarios/`
+- Terminal-Bench: https://github.com/terminal-bench/terminal-bench
+- AgentBeats Examples: https://github.com/agentbeats/agentbeats/scenarios/
 - A2A Protocol: https://github.com/google/a2a
 
 ## Success Checklist

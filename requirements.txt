@@ -3,8 +3,9 @@
 # Core A2A framework (correct package name!)
 a2a-sdk>=0.3.0
 
-# Terminal-bench (assuming it's installed from parent directory)
-# Install with: pip install -e ../terminal-bench
+# Terminal-bench (install with: pip install terminal-bench)
+# After installation, download the dataset with:
+# terminal-bench datasets download --dataset terminal-bench-core
 
 # HTTP client for A2A communication
 httpx>=0.25.0

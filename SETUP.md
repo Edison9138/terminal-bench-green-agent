@@ -14,7 +14,8 @@ The system has three components:
 
 - Python 3.10+
 - Docker (required by terminal-bench for task environments)
-- Terminal-bench installed
+- Terminal-bench installed (via pip install terminal-bench)
+- Terminal-bench dataset downloaded (via terminal-bench datasets download)
 
 ## Installation
 
@@ -30,10 +31,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install terminal-bench (from parent directory)
-cd ../terminal-bench
-pip install -e .
-cd ../terminal-bench-green-agent
+# Download terminal-bench dataset (one-time setup)
+terminal-bench datasets download --dataset terminal-bench-core
 ```
 
 ### Step 2: Configure Environment
@@ -53,6 +52,9 @@ Optionally customize `config.toml` for ports, paths, and other settings.
 ```bash
 # Test that terminal-bench is available
 terminal-bench --help
+
+# Verify dataset is downloaded
+terminal-bench datasets list
 ```
 
 ## Quick Start
@@ -119,23 +121,22 @@ n_attempts = 1                           # Optional: default 1 - Attempts per ta
 n_concurrent_trials = 1                  # Optional: default 1 - Parallel execution
 timeout_multiplier = 1.0                 # Optional: default 1.0 - Timeout adjustment
 
-# Dataset Settings
-[dataset]
-path = "../terminal-bench/tasks"        # REQUIRED - Path to local dataset
+# Dataset Settings (optional - terminal-bench manages datasets automatically)
+# [dataset]
+# path = "path/to/custom/dataset"            # Optional - only needed for custom datasets
 
 # White Agent Settings
 [white_agent]
-port = 8001                              # Optional: default 8001 - Port where agent is running
+port = 8001                                      # Optional: default 8001 - Port where agent is running
 card_path = "white_agent/white_agent_card.toml"  # REQUIRED
-execution_root = "."                     # REQUIRED - Command execution directory
-model = "gpt-4o-mini"                    # REQUIRED - LLM model to use
+model = "gpt-4o-mini"                            # REQUIRED - LLM model to use
 ```
 
 **Important Notes:**
 
 - **REQUIRED fields**: Must be explicitly set - the app will fail with helpful errors if missing
-- **Task IDs**: Use actual directory names from `terminal-bench/tasks/`, not numbers
-- **Dataset**: Must specify `dataset.path` for local tasks
+- **Task IDs**: Use actual directory names from terminal-bench tasks, not numbers
+- **Dataset**: Terminal-bench manages datasets automatically - no need to specify dataset.path unless using custom datasets
 - You can override any setting with environment variables (see CONFIG.md)
 
 ### Environment Configuration
@@ -161,7 +162,6 @@ host = "0.0.0.0"
 port = 8001                                      # Optional: default 8001
 host = "0.0.0.0"                                 # Optional: default 0.0.0.0
 card_path = "white_agent/white_agent_card.toml" # REQUIRED
-execution_root = "."                             # REQUIRED
 model = "gpt-4o-mini"                            # REQUIRED
 
 [evaluation]
@@ -171,7 +171,8 @@ timeout_multiplier = 1.0            # Optional: default 1.0
 output_path = "eval_results"        # Optional: default ./eval_results
 
 [dataset]
-path = "../terminal-bench/tasks"   # REQUIRED - Local dataset path
+# Dataset is managed automatically by terminal-bench
+# No need to specify dataset.path unless using custom datasets
 ```
 
 ### Agent Configuration
@@ -460,8 +461,10 @@ id = "skill1"
 
 ```bash
 # Solution: Make sure terminal-bench is installed
-cd ../terminal-bench
-pip install -e .
+pip install terminal-bench
+
+# Also make sure the dataset is downloaded
+terminal-bench datasets download --dataset terminal-bench-core
 ```
 
 **Problem:** Docker errors when running tasks
@@ -519,6 +522,8 @@ Or use environment variables:
 export DATASET_PATH="/path/to/custom/dataset"
 export EVALUATION_TASK_IDS="task1,task2"
 ```
+
+**Note:** For standard terminal-bench tasks, you don't need to specify a dataset path - terminal-bench manages this automatically.
 
 ### Multiple Evaluation Runs
 
