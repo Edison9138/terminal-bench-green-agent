@@ -40,6 +40,13 @@ card_path = "white_agent/white_agent_card.toml"
 # Examples: "gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"
 model = "gpt-4o-mini"
 
+# Optional: Maximum number of iterations the agent can perform (default: 10)
+max_iterations = 10
+
+# Optional: List of commands to block for safety (default: empty list)
+# Examples: ["rm", "sudo", "reboot"]
+blocked_commands = []
+
 # ============================================================================
 # Terminal-Bench Evaluation Settings
 # ============================================================================

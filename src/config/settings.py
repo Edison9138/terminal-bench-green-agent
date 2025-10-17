@@ -221,6 +221,21 @@ class Settings:
         """Get white agent URL from environment or default."""
         return os.getenv("WHITE_AGENT_URL", "http://localhost:8001")
 
+    @property
+    def agent_max_iterations(self) -> int:
+        """Get maximum number of agent iterations (default: 10)."""
+        iterations = self.get("white_agent.max_iterations", 10)
+        return int(iterations)
+
+    @property
+    def blocked_commands(self) -> list[str]:
+        """Get list of blocked commands for safety (default: empty list)."""
+        commands = self.get("white_agent.blocked_commands", [])
+        # Handle case where it's a comma-separated string from env var
+        if isinstance(commands, str):
+            return [c.strip() for c in commands.split(",") if c.strip()]
+        return commands if commands else []
+
     # Evaluation Settings
     @property
     def eval_output_path(self) -> str:
