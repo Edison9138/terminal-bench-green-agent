@@ -17,7 +17,6 @@ from terminal_bench.agents.failure_mode import FailureMode
 from terminal_bench.terminal.tmux_session import TmuxSession
 
 from src.utils.a2a_client import send_message_to_agent
-from src.utils.constants import ESTIMATED_CHARS_PER_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -166,17 +165,14 @@ Please proceed with the task.
         else:
             logger.info("Agent completed task successfully")
 
-        # Create result with token estimation
-        # Token counting: rough estimate based on response length
-        # (Real implementation would track actual LLM usage from the agent)
-        estimated_input_tokens = len(formatted_message) // ESTIMATED_CHARS_PER_TOKEN
-        estimated_output_tokens = len(response) // ESTIMATED_CHARS_PER_TOKEN
-
+        # Note: Token counting is set to 0 because we don't have access to the actual
+        # LLM token counts from the white agent. If the white agent returns token usage
+        # in its response metadata, you could parse and use those values here.
         return AgentResult(
             failure_mode=failure_mode,
             timestamped_markers=[],  # Terminal-bench will track markers
-            total_input_tokens=estimated_input_tokens,
-            total_output_tokens=estimated_output_tokens,
+            total_input_tokens=0,
+            total_output_tokens=0,
         )
 
     def cleanup(self) -> None:

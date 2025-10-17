@@ -275,6 +275,13 @@ class Settings:
         """Get streaming setting."""
         return self.get("a2a.streaming", True)
 
+    # Agent Execution Settings
+    @property
+    def agent_max_iterations(self) -> int:
+        """Get maximum agent iterations."""
+        iterations = self.get("agent.max_iterations", 15)
+        return int(iterations)
+
     def validate_required_settings(self) -> None:
         """
         Validate that all required settings are present and accessible.

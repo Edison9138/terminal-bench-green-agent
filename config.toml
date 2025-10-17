@@ -48,3 +48,7 @@ streaming = true                # Optional: default true
 # Command Safety Settings
 [safety]
 blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"] # Optional: has defaults
+
+# Agent Execution Settings
+[agent]
+max_iterations = 15  # Optional: default 15 - Maximum LLM agent loop iterations to prevent runaway loops

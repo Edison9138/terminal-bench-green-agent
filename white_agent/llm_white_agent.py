@@ -24,7 +24,6 @@ from a2a.utils import new_task, new_agent_text_message
 from a2a.server.tasks import TaskUpdater
 
 from src.config import settings
-from src.utils.constants import MAX_AGENT_ITERATIONS, ESTIMATED_CHARS_PER_TOKEN
 
 
 class LLMWhiteAgentExecutor(AgentExecutor):
@@ -177,7 +176,7 @@ Remember: You're being evaluated on your ability to correctly complete the task!
 
         iteration = 0
 
-        while iteration < MAX_AGENT_ITERATIONS:
+        while iteration < settings.agent_max_iterations:
             iteration += 1
 
             # Call the LLM
