@@ -188,24 +188,30 @@ Edit `config.toml`:
 
 ```toml
 [evaluation]
-task_ids = [                       # REQUIRED - Tasks to evaluate
-    "hello-world",                 # Simple file creation
-    "create-bucket",               # AWS S3 bucket
-    "csv-to-parquet",              # Data conversion
+# REQUIRED: Must specify at least one task - there is NO "run all" option!
+task_ids = [
+    "hello-world",     # Simple file creation
+    "create-bucket",   # AWS S3 bucket
+    "csv-to-parquet",  # Data conversion
 ]
 
 # Dataset is managed automatically by terminal-bench
-# No need to specify dataset.path
+[dataset]
+name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
+version = "head"  # Optional: default "head"
 ```
 
 Or set via environment variable:
 
 ```bash
 export EVALUATION_TASK_IDS="hello-world,csv-to-parquet,create-bucket"
-export DATASET_PATH="path/to/terminal-bench/tasks"
+# For custom datasets only:
+# export DATASET_PATH="/path/to/custom/terminal-bench/tasks"
 ```
 
-**Important:** Task IDs are directory names from `terminal-bench/tasks/`, not numbers.
+**Important:**
+- Task IDs are directory names from `terminal-bench/tasks/`, not numbers
+- You MUST specify task_ids - there is no way to run all tasks automatically
 
 ### Change Agent Being Evaluated
 
@@ -314,13 +320,20 @@ cp .env.example .env
    - Add terminal execution tools
    - Integrate with LLM
 
-2. **Run Full Evaluation**: Test on complete dataset
+2. **Run Full Evaluation**: Test on more tasks
 
    ```toml
-   # In config.toml, comment out or remove task_ids to run all tasks
+   # In config.toml, add more task IDs
    [evaluation]
-   # task_ids = ["hello-world"]  # Comment this out to run all tasks
+   task_ids = [
+       "hello-world",
+       "create-bucket",
+       "csv-to-parquet",
+       # Add more task IDs as needed
+   ]
    ```
+
+   Note: You must explicitly list all task IDs you want to run
 
 3. **Integrate with AgentBeats**: Connect to evaluation platform
    - See `SETUP.md` → "Integration with AgentBeats"

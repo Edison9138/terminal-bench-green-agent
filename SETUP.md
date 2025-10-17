@@ -109,34 +109,46 @@ python your_white_agent.py --port 8001
 Edit `config.toml` to configure the evaluation:
 
 ```toml
+# Green Agent Settings - ALL REQUIRED
+[green_agent]
+host = "0.0.0.0"
+port = 9999
+card_path = "src/green_agent/card.toml"
+
+# White Agent Settings - ALL REQUIRED
+[white_agent]
+host = "0.0.0.0"
+port = 8001
+card_path = "white_agent/white_agent_card.toml"
+model = "gpt-4o-mini"  # LLM model to use
+
 # Terminal-Bench Evaluation Settings
 [evaluation]
-# Task IDs are actual directory names from terminal-bench/tasks/
-task_ids = [                             # REQUIRED - List of tasks to evaluate
-    "hello-world",                       # Simple file creation
-    "create-bucket",                     # AWS S3 bucket creation
-    "csv-to-parquet",                    # Data format conversion
+# REQUIRED: Task IDs are actual directory names from terminal-bench/tasks/
+task_ids = [
+    "hello-world",     # Simple file creation
+    "create-bucket",   # AWS S3 bucket creation
+    "csv-to-parquet",  # Data format conversion
 ]
-n_attempts = 1                           # Optional: default 1 - Attempts per task
-n_concurrent_trials = 1                  # Optional: default 1 - Parallel execution
-timeout_multiplier = 1.0                 # Optional: default 1.0 - Timeout adjustment
+n_attempts = 1                  # Optional: default 1
+n_concurrent_trials = 1         # Optional: default 1
+timeout_multiplier = 1.0        # Optional: default 1.0
+output_path = "./eval_results"  # Optional: default ./eval_results
 
-# Dataset Settings (optional - terminal-bench manages datasets automatically)
-# [dataset]
-# path = "path/to/custom/dataset"            # Optional - only needed for custom datasets
-
-# White Agent Settings
-[white_agent]
-port = 8001                                      # Optional: default 8001 - Port where agent is running
-card_path = "white_agent/white_agent_card.toml"  # REQUIRED
-model = "gpt-4o-mini"                            # REQUIRED - LLM model to use
+# Dataset Settings (for automatic dataset management)
+[dataset]
+name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
+version = "head"              # Optional: default "head"
+# For custom datasets:
+# path = "/path/to/custom/dataset"
 ```
 
 **Important Notes:**
 
-- **REQUIRED fields**: Must be explicitly set - the app will fail with helpful errors if missing
+- **All configuration values are REQUIRED** unless marked "Optional" with a default
 - **Task IDs**: Use actual directory names from terminal-bench tasks, not numbers
-- **Dataset**: Terminal-bench manages datasets automatically - no need to specify dataset.path unless using custom datasets
+- **You MUST specify task_ids** - there is no "run all tasks" option
+- **Dataset**: Terminal-bench manages datasets automatically via name/version
 - You can override any setting with environment variables (see CONFIG.md)
 
 ### Environment Configuration
@@ -155,24 +167,26 @@ LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
 
 ```toml
 [green_agent]
-port = 9999
-host = "0.0.0.0"
+host = "0.0.0.0"  # REQUIRED
+port = 9999  # REQUIRED
+card_path = "src/green_agent/card.toml"  # REQUIRED
 
 [white_agent]
-port = 8001                                      # Optional: default 8001
-host = "0.0.0.0"                                 # Optional: default 0.0.0.0
-card_path = "white_agent/white_agent_card.toml" # REQUIRED
-model = "gpt-4o-mini"                            # REQUIRED
+host = "0.0.0.0"  # REQUIRED
+port = 8001  # REQUIRED
+card_path = "white_agent/white_agent_card.toml"  # REQUIRED
+model = "gpt-4o-mini"  # REQUIRED
 
 [evaluation]
-task_ids = ["hello-world"]         # REQUIRED - Tasks to run
-n_attempts = 1                      # Optional: default 1
-timeout_multiplier = 1.0            # Optional: default 1.0
-output_path = "eval_results"        # Optional: default ./eval_results
+task_ids = ["hello-world"]  # REQUIRED - must specify at least one
+n_attempts = 1  # Optional: default 1
+timeout_multiplier = 1.0  # Optional: default 1.0
+output_path = "./eval_results"  # Optional: default ./eval_results
 
 [dataset]
-# Dataset is managed automatically by terminal-bench
-# No need to specify dataset.path unless using custom datasets
+name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
+version = "head"  # Optional: default "head"
+# For custom datasets: path = "/path/to/custom/dataset"
 ```
 
 ### Agent Configuration
@@ -209,16 +223,16 @@ tags = ["tag1", "tag2"]
 - ❌ `streaming = false` → ✅ Use `streaming = true`
 - ❌ Missing `url`, `defaultInputModes`, `defaultOutputModes` → ✅ Add them!
 
-#### Green Agent (`green_agent_card.toml`)
+#### Green Agent (`src/green_agent/card.toml`)
 
 - Evaluator agent configuration
-- Runs on port 9999 by default
+- Runs on port 9999 (configurable in config.toml)
 - Has evaluation and reporting skills
 
-#### White Agent (`example_white_agent_card.toml` or your own)
+#### White Agent (`white_agent/white_agent_card.toml` or your own)
 
 - Agent being evaluated configuration
-- Runs on port 8001 by default
+- Runs on port 8001 (configurable in config.toml)
 - Should have task-solving skills
 
 ## Architecture Details

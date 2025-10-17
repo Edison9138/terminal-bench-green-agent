@@ -6,49 +6,97 @@
 name = "terminal-bench-green-agent"
 version = "1.0.0"
 
-# Green Agent Settings
+# ============================================================================
+# Green Agent Settings (Evaluator)
+# ============================================================================
 [green_agent]
-host = "0.0.0.0"                        # Optional: default 0.0.0.0
-port = 9999                              # Optional: default 9999
-card_path = "src/green_agent/card.toml" # REQUIRED
+# REQUIRED: Host to bind the green agent server to
+# Use "0.0.0.0" to accept connections from any network interface
+# Use "127.0.0.1" for localhost-only access
+host = "0.0.0.0"
 
-# White Agent Settings (for testing)
+# REQUIRED: Port for the green agent server
+port = 9999
+
+# REQUIRED: Path to the green agent's A2A card file
+card_path = "src/green_agent/card.toml"
+
+# ============================================================================
+# White Agent Settings (Agent Under Test)
+# ============================================================================
 [white_agent]
-host = "0.0.0.0"                                 # Optional: default 0.0.0.0
-port = 8001                                      # Optional: default 8001
-card_path = "white_agent/white_agent_card.toml" # REQUIRED
-model = "gpt-4o-mini"                            # REQUIRED (OpenAI model to use, can be overridden by WHITE_AGENT_MODEL env var)
+# REQUIRED: Host where the white agent is running
+# Typically "0.0.0.0" if running the included white agent
+host = "0.0.0.0"
 
+# REQUIRED: Port where the white agent is running
+port = 8001
+
+# REQUIRED: Path to the white agent's A2A card file
+card_path = "white_agent/white_agent_card.toml"
+
+# REQUIRED: LLM model to use for the white agent
+# Can be overridden by WHITE_AGENT_MODEL environment variable
+# Examples: "gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"
+model = "gpt-4o-mini"
+
+# ============================================================================
 # Terminal-Bench Evaluation Settings
+# ============================================================================
 [evaluation]
-output_path = "./eval_results"         # Optional: default ./eval_results
-n_attempts = 1                          # Optional: default 1
-n_concurrent_trials = 1                 # Optional: default 1
-timeout_multiplier = 1.0                # Optional: default 1.0
-cleanup = false                         # Optional: default false
-task_ids = ["hello-world"]              # REQUIRED (list of task IDs to run)
+# REQUIRED: List of task IDs to evaluate
+# Task IDs are directory names from terminal-bench tasks
+# Examples: ["hello-world", "create-bucket", "csv-to-parquet"]
+# You MUST specify at least one task ID - there is no "run all" option
+task_ids = ["hello-world"]
 
-# Dataset Settings (optional - terminal-bench manages datasets automatically)
-# [dataset]
-# path = "path/to/terminal-bench/tasks" # Optional - only needed for custom datasets
-# name = "terminal-bench-core"          # Optional - dataset name for automatic management
-# version = "head"                      # Optional - dataset version for automatic management
+# Optional: Output directory for evaluation results (default: ./eval_results)
+output_path = "./eval_results"
 
+# Optional: Number of attempts per task (default: 1)
+n_attempts = 1
+
+# Optional: Number of concurrent trials (default: 1)
+n_concurrent_trials = 1
+
+# Optional: Timeout multiplier for task execution (default: 1.0)
+timeout_multiplier = 1.0
+
+# Optional: Cleanup Docker containers after evaluation (default: false)
+cleanup = false
+
+# ============================================================================
+# Dataset Settings
+# ============================================================================
+# Terminal-bench can use either:
+# 1. Automatic dataset management (recommended) - specify name and version
+# 2. Custom dataset path - specify path to local dataset directory
+
+# For automatic dataset management (recommended):
+[dataset]
+name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
+version = "head"              # Optional: default "head"
+
+# For custom datasets, uncomment and set:
+# path = "/path/to/custom/dataset"  # Path to custom terminal-bench dataset
+
+# ============================================================================
 # Logging Configuration
+# ============================================================================
 [logging]
-level = "INFO"                                                   # Optional: default INFO
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s" # Optional: has default
+# Optional: Log level (default: INFO)
+# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = "INFO"
 
+# Optional: Log format string (default shown below)
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ============================================================================
 # A2A Protocol Settings
+# ============================================================================
 [a2a]
-default_input_modes = ["text"]  # Optional: default ["text"]
-default_output_modes = ["text"] # Optional: default ["text"]
-streaming = true                # Optional: default true
+# Optional: Timeout for sending messages to agents in seconds (default: 300.0)
+message_timeout = 300.0
 
-# Command Safety Settings
-[safety]
-blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"] # Optional: has defaults
-
-# Agent Execution Settings
-[agent]
-max_iterations = 15  # Optional: default 15 - Maximum LLM agent loop iterations to prevent runaway loops
+# Optional: Timeout for health check requests in seconds (default: 5.0)
+health_check_timeout = 5.0

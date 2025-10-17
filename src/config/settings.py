@@ -18,6 +18,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+class ConfigurationError(Exception):
+    """Raised when there's a configuration error."""
+
+    pass
+
+
 class Settings:
     """
     Configuration settings manager.
@@ -33,6 +39,9 @@ class Settings:
         Args:
             config_path: Path to config.toml file. If None, searches for it
                         in the project root.
+
+        Raises:
+            ConfigurationError: If config.toml doesn't exist or has invalid syntax
         """
         # Find project root (directory containing config.toml)
         if config_path is None:
@@ -44,10 +53,31 @@ class Settings:
         self.config_path = config_path
         self._config: dict[str, Any] = {}
 
-        # Load TOML config if it exists
-        if self.config_path.exists():
+        # Validate that config file exists
+        if not self.config_path.exists():
+            raise ConfigurationError(
+                f"Configuration file not found: {self.config_path}\n"
+                f"Please create a config.toml file in the project root.\n"
+                f"You can copy config.toml.example as a starting point."
+            )
+
+        # Load TOML config with error handling
+        try:
             with open(self.config_path, "rb") as f:
                 self._config = tomllib.load(f)
+        except tomllib.TOMLDecodeError as e:
+            raise ConfigurationError(
+                f"Invalid TOML syntax in {self.config_path}:\n{e}\n"
+                f"Please check your config.toml file for syntax errors."
+            ) from e
+        except PermissionError as e:
+            raise ConfigurationError(
+                f"Permission denied reading {self.config_path}:\n{e}"
+            ) from e
+        except Exception as e:
+            raise ConfigurationError(
+                f"Error loading config from {self.config_path}:\n{e}"
+            ) from e
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -97,13 +127,26 @@ class Settings:
     # Green Agent Settings
     @property
     def green_agent_host(self) -> str:
-        """Get green agent host."""
-        return self.get("green_agent.host", "0.0.0.0")
+        """Get green agent host (required)."""
+        host = self.get("green_agent.host")
+        if not host:
+            raise ConfigurationError(
+                "green_agent.host is required. Please set it in config.toml:\n"
+                "[green_agent]\n"
+                'host = "0.0.0.0"  # Use 0.0.0.0 for all interfaces or 127.0.0.1 for localhost only'
+            )
+        return host
 
     @property
     def green_agent_port(self) -> int:
-        """Get green agent port."""
-        port = self.get("green_agent.port", 9999)
+        """Get green agent port (required)."""
+        port = self.get("green_agent.port")
+        if port is None:
+            raise ConfigurationError(
+                "green_agent.port is required. Please set it in config.toml:\n"
+                "[green_agent]\n"
+                "port = 9999"
+            )
         return int(port)
 
     @property
@@ -111,7 +154,7 @@ class Settings:
         """Get green agent card path (required)."""
         path = self.get("green_agent.card_path")
         if not path:
-            raise ValueError(
+            raise ConfigurationError(
                 "green_agent.card_path is required. Please set it in config.toml:\n"
                 "[green_agent]\n"
                 'card_path = "src/green_agent/card.toml"'
@@ -121,13 +164,26 @@ class Settings:
     # White Agent Settings
     @property
     def white_agent_host(self) -> str:
-        """Get white agent host."""
-        return self.get("white_agent.host", "0.0.0.0")
+        """Get white agent host (required)."""
+        host = self.get("white_agent.host")
+        if not host:
+            raise ConfigurationError(
+                "white_agent.host is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                'host = "0.0.0.0"'
+            )
+        return host
 
     @property
     def white_agent_port(self) -> int:
-        """Get white agent port."""
-        port = self.get("white_agent.port", 8001)
+        """Get white agent port (required)."""
+        port = self.get("white_agent.port")
+        if port is None:
+            raise ConfigurationError(
+                "white_agent.port is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                "port = 8001"
+            )
         return int(port)
 
     @property
@@ -135,7 +191,7 @@ class Settings:
         """Get white agent card path (required)."""
         path = self.get("white_agent.card_path")
         if not path:
-            raise ValueError(
+            raise ConfigurationError(
                 "white_agent.card_path is required. Please set it in config.toml:\n"
                 "[white_agent]\n"
                 'card_path = "white_agent/white_agent_card.toml"'
@@ -152,7 +208,7 @@ class Settings:
 
         model = self.get("white_agent.model")
         if not model:
-            raise ValueError(
+            raise ConfigurationError(
                 "white_agent.model is required. Please set it in config.toml:\n"
                 "[white_agent]\n"
                 'model = "gpt-4o-mini"  # Or your preferred model\n'
@@ -200,7 +256,7 @@ class Settings:
         """Get list of task IDs to run (required)."""
         task_ids = self.get("evaluation.task_ids")
         if not task_ids:
-            raise ValueError(
+            raise ConfigurationError(
                 "evaluation.task_ids is required. Please set it in config.toml:\n"
                 "[evaluation]\n"
                 'task_ids = ["hello-world"]  # Or your preferred task IDs\n'
@@ -255,36 +311,18 @@ class Settings:
             "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-    # Safety Settings
-    @property
-    def blocked_commands(self) -> list[str]:
-        """Get list of blocked commands."""
-        return self.get(
-            "safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"]
-        )
-
     # A2A Settings
     @property
-    def a2a_default_input_modes(self) -> list[str]:
-        """Get default input modes."""
-        return self.get("a2a.default_input_modes", ["text"])
+    def a2a_message_timeout(self) -> float:
+        """Get timeout for sending messages to agents in seconds (default: 300.0)."""
+        timeout = self.get("a2a.message_timeout", 300.0)
+        return float(timeout)
 
     @property
-    def a2a_default_output_modes(self) -> list[str]:
-        """Get default output modes."""
-        return self.get("a2a.default_output_modes", ["text"])
-
-    @property
-    def a2a_streaming(self) -> bool:
-        """Get streaming setting."""
-        return self.get("a2a.streaming", True)
-
-    # Agent Execution Settings
-    @property
-    def agent_max_iterations(self) -> int:
-        """Get maximum agent iterations."""
-        iterations = self.get("agent.max_iterations", 15)
-        return int(iterations)
+    def a2a_health_check_timeout(self) -> float:
+        """Get timeout for health check requests in seconds (default: 5.0)."""
+        timeout = self.get("a2a.health_check_timeout", 5.0)
+        return float(timeout)
 
     def validate_required_settings(self) -> None:
         """
@@ -294,18 +332,18 @@ class Settings:
         configuration is incomplete.
 
         Raises:
-            ValueError: If any required setting is missing or invalid
+            ConfigurationError: If any required setting is missing or invalid
         """
         # Validate required settings by accessing their properties
-        # These will raise ValueError with helpful messages if missing
-        try:
-            _ = self.green_agent_card_path
-            _ = self.white_agent_card_path
-            _ = self.white_agent_model
-            _ = self.eval_task_ids
-        except ValueError:
-            # Re-raise the ValueError with the helpful message from the property
-            raise
+        # These will raise ConfigurationError with helpful messages if missing
+        _ = self.green_agent_host
+        _ = self.green_agent_port
+        _ = self.green_agent_card_path
+        _ = self.white_agent_host
+        _ = self.white_agent_port
+        _ = self.white_agent_card_path
+        _ = self.white_agent_model
+        _ = self.eval_task_ids
 
 
 # Global settings instance

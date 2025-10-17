@@ -32,12 +32,12 @@ This is a "green agent" that evaluates other agents' capabilities on the termina
 
 ## Components
 
-### 1. Kickoff Script (`kickoff_terminal_bench.py`)
+### 1. Kickoff Script (`src/kickoff.py`)
 
 - Sends terminal-bench configuration to green agent
 - Config includes: dataset, task_ids, white agent URL, model settings
 
-### 2. Green Agent (`green_agent.py`)
+### 2. Green Agent (`src/green_agent/agent.py`)
 
 - Receives eval request via A2A
 - Runs terminal-bench harness internally
@@ -215,25 +215,38 @@ terminal-bench-green-agent/
 Edit the configuration file to customize evaluation:
 
 ```toml
-# Terminal-Bench Evaluation Settings (task_ids is REQUIRED)
-[evaluation]
-task_ids = ["hello-world", "create-bucket", "csv-to-parquet"]  # REQUIRED
-n_attempts = 1                                                   # Optional: default 1
-n_concurrent_trials = 1                                          # Optional: default 1
-timeout_multiplier = 1.0                                         # Optional: default 1.0
+# Green Agent Settings - ALL REQUIRED
+[green_agent]
+host = "0.0.0.0"
+port = 9999
+card_path = "src/green_agent/card.toml"
 
-# Dataset Settings (optional - terminal-bench manages datasets automatically)
-# [dataset]
-# path = "path/to/custom/dataset"  # Optional - only needed for custom datasets
-
-# White Agent Settings (card_path and model are REQUIRED)
+# White Agent Settings - ALL REQUIRED
 [white_agent]
-port = 8001                                      # Optional: default 8001
-card_path = "white_agent/white_agent_card.toml" # REQUIRED
-model = "gpt-4o-mini"                            # REQUIRED
+host = "0.0.0.0"
+port = 8001
+card_path = "white_agent/white_agent_card.toml"
+model = "gpt-4o-mini"  # Can override with WHITE_AGENT_MODEL env var
+
+# Evaluation Settings
+[evaluation]
+task_ids = ["hello-world"]  # REQUIRED - must specify at least one task
+output_path = "./eval_results"  # Optional: default ./eval_results
+n_attempts = 1  # Optional: default 1
+n_concurrent_trials = 1  # Optional: default 1
+timeout_multiplier = 1.0  # Optional: default 1.0
+
+# Dataset Settings - for automatic dataset management
+[dataset]
+name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
+version = "head"  # Optional: default "head"
+# For custom datasets, set: path = "/path/to/custom/dataset"
 ```
 
-**Important:** Task IDs are directory names from terminal-bench tasks, not numbers! Terminal-bench manages datasets automatically.
+**Important:**
+- Task IDs are directory names from terminal-bench tasks, not numbers
+- You MUST specify task_ids - there is no "run all tasks" option
+- Terminal-bench manages datasets automatically via name/version
 
 You can also override settings via environment variables (see [CONFIG.md](CONFIG.md)):
 

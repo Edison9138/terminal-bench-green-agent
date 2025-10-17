@@ -25,6 +25,7 @@ from terminal_bench.harness.harness import Harness
 from terminal_bench.harness.models import BenchmarkResults
 
 from src.config import settings
+from src.config.settings import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +308,7 @@ def main():
     try:
         settings.validate_required_settings()
         logger.info("Configuration validated successfully")
-    except ValueError as e:
+    except ConfigurationError as e:
         logger.error(f"Configuration error: {e}")
         logger.error("Please check your config.toml and .env files")
         raise SystemExit(1)
