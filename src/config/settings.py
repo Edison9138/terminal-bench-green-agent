@@ -251,13 +251,17 @@ class Settings:
     @property
     def log_format(self) -> str:
         """Get log format."""
-        return self.get("logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        return self.get(
+            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
 
     # Safety Settings
     @property
     def blocked_commands(self) -> list[str]:
         """Get list of blocked commands."""
-        return self.get("safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"])
+        return self.get(
+            "safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"]
+        )
 
     # A2A Settings
     @property
