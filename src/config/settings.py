@@ -11,7 +11,7 @@ Environment variables override TOML settings.
 import os
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -26,7 +26,7 @@ class Settings:
     Environment variables take precedence over TOML settings.
     """
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """
         Initialize settings.
 
@@ -42,7 +42,7 @@ class Settings:
             config_path = project_root / "config.toml"
 
         self.config_path = config_path
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
 
         # Load TOML config if it exists
         if self.config_path.exists():
@@ -85,12 +85,12 @@ class Settings:
 
     # API Keys
     @property
-    def openai_api_key(self) -> Optional[str]:
+    def openai_api_key(self) -> str | None:
         """Get OpenAI API key from environment."""
         return os.getenv("OPENAI_API_KEY")
 
     @property
-    def anthropic_api_key(self) -> Optional[str]:
+    def anthropic_api_key(self) -> str | None:
         """Get Anthropic API key from environment."""
         return os.getenv("ANTHROPIC_API_KEY")
 
@@ -141,24 +141,6 @@ class Settings:
                 'card_path = "white_agent/white_agent_card.toml"'
             )
         return path
-
-    @property
-    def white_agent_execution_root(self) -> str:
-        """Get white agent execution root directory (required)."""
-        # Environment variable takes precedence
-        env_root = os.getenv("WHITE_AGENT_EXECUTION_ROOT")
-        if env_root:
-            return env_root
-
-        root = self.get("white_agent.execution_root")
-        if not root:
-            raise ValueError(
-                "white_agent.execution_root is required. Please set it in config.toml:\n"
-                "[white_agent]\n"
-                'execution_root = "."  # Or specify your preferred directory\n'
-                "Or set the WHITE_AGENT_EXECUTION_ROOT environment variable"
-            )
-        return root
 
     @property
     def white_agent_model(self) -> str:
@@ -231,22 +213,30 @@ class Settings:
 
     # Dataset Settings
     @property
-    def dataset_path(self) -> str:
-        """Get dataset path (required)."""
+    def dataset_path(self) -> str | None:
+        """Get dataset path (optional - terminal-bench manages datasets automatically)."""
         # Environment variable takes precedence
         env_path = os.getenv("DATASET_PATH")
         if env_path:
             return env_path
 
+        # Check if dataset path is specified in config
         path = self.get("dataset.path")
-        if not path:
-            raise ValueError(
-                "dataset.path is required. Please set it in config.toml:\n"
-                "[dataset]\n"
-                'path = "../terminal-bench/tasks"  # Or your dataset location\n'
-                "Or set the DATASET_PATH environment variable"
-            )
-        return path
+        if path:
+            return path
+
+        # If no path specified, terminal-bench will use its default dataset management
+        return None
+
+    @property
+    def dataset_name(self) -> str:
+        """Get dataset name for automatic dataset management."""
+        return self.get("dataset.name", "terminal-bench-core")
+
+    @property
+    def dataset_version(self) -> str:
+        """Get dataset version for automatic dataset management."""
+        return self.get("dataset.version", "head")
 
     # Logging Settings
     @property
@@ -261,17 +251,13 @@ class Settings:
     @property
     def log_format(self) -> str:
         """Get log format."""
-        return self.get(
-            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        return self.get("logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # Safety Settings
     @property
     def blocked_commands(self) -> list[str]:
         """Get list of blocked commands."""
-        return self.get(
-            "safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"]
-        )
+        return self.get("safety.blocked_commands", ["rm", "sudo", "shutdown", "reboot", "halt"])
 
     # A2A Settings
     @property
@@ -288,6 +274,27 @@ class Settings:
     def a2a_streaming(self) -> bool:
         """Get streaming setting."""
         return self.get("a2a.streaming", True)
+
+    def validate_required_settings(self) -> None:
+        """
+        Validate that all required settings are present and accessible.
+
+        This should be called at application startup to fail fast if
+        configuration is incomplete.
+
+        Raises:
+            ValueError: If any required setting is missing or invalid
+        """
+        # Validate required settings by accessing their properties
+        # These will raise ValueError with helpful messages if missing
+        try:
+            _ = self.green_agent_card_path
+            _ = self.white_agent_card_path
+            _ = self.white_agent_model
+            _ = self.eval_task_ids
+        except ValueError:
+            # Re-raise the ValueError with the helpful message from the property
+            raise
 
 
 # Global settings instance
