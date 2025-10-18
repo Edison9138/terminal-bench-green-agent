@@ -196,18 +196,12 @@ class Settings:
     @property
     def white_agent_model(self) -> str:
         """Get white agent LLM model (required)."""
-        # Environment variable takes precedence
-        env_model = os.getenv("WHITE_AGENT_MODEL")
-        if env_model:
-            return env_model
-
         model = self.get("white_agent.model")
         if not model:
             raise ConfigurationError(
                 "white_agent.model is required. Please set it in config.toml:\n"
                 "[white_agent]\n"
                 'model = "gpt-4o-mini"  # Or your preferred model\n'
-                "Or set the WHITE_AGENT_MODEL environment variable"
             )
         return model
 
@@ -310,7 +304,6 @@ class Settings:
                 "evaluation.task_ids is required. Please set it in config.toml:\n"
                 "[evaluation]\n"
                 'task_ids = ["hello-world"]  # Or your preferred task IDs\n'
-                "Or set the EVALUATION_TASK_IDS environment variable"
             )
         # Handle case where it's a comma-separated string from env var
         if isinstance(task_ids, str):

@@ -82,15 +82,6 @@ message_timeout = 300.0
 health_check_timeout = 5.0
 ```
 
-### Environment Variables
-
-Override any setting:
-```bash
-export WHITE_AGENT_MODEL="gpt-4o"
-export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"  # Comma-separated
-export GREEN_AGENT_PORT=9998
-```
-
 ### Agent Card Format
 
 Both agent cards must follow this format:
@@ -209,7 +200,7 @@ Your agent should:
 - `white_agent.host` - Host to bind
 - `white_agent.port` - Server port (default: 8001)
 - `white_agent.card_path` - Path to agent card
-- `white_agent.model` - LLM model (can override with `WHITE_AGENT_MODEL` env var)
+- `white_agent.model` - LLM model 
 - `white_agent.max_iterations` - Max iterations per task
 - `white_agent.blocked_commands` - Commands to block for safety
 
@@ -247,11 +238,6 @@ Your agent should:
 - Check `config.toml` is in project root
 - Verify `.env` exists
 - Check for syntax errors
-
-**Environment variable not working?**
-- Use UPPERCASE with underscores: `GREEN_AGENT_PORT` not `green_agent.port`
-- Nested keys: `EVALUATION_N_ATTEMPTS` for `evaluation.n_attempts`
-- Lists: Comma-separated `EVALUATION_TASK_IDS="task1,task2"`
 
 **API key not found?**
 - Ensure `.env` exists (copy from `.env.example`)
@@ -318,20 +304,6 @@ curl http://localhost:8001/agent/card  # Should return agent card
 ### Custom Datasets
 
 For custom terminal-bench datasets, modify the harness initialization in `src/green_agent/agent.py`. Standard datasets are managed automatically via `dataset.name` and `dataset.version`.
-
-### Multiple Evaluations
-
-```bash
-# Run 1
-export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
-python -m src.kickoff
-
-# Run 2
-export EVALUATION_TASK_IDS="create-bucket,other-task"
-python -m src.kickoff
-```
-
-Or modify `config.toml` between runs.
 
 ### Integration with AgentBeats
 

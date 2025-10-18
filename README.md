@@ -77,12 +77,7 @@ name = "terminal-bench-core"
 version = "head"
 ```
 
-**All fields in config.toml are REQUIRED.** Override with environment variables:
-
-```bash
-export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
-export WHITE_AGENT_MODEL="gpt-4o"
-```
+**All fields in config.toml are REQUIRED.**
 
 See [SETUP.md](SETUP.md) for complete configuration reference.
 
