@@ -63,8 +63,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         Args:
             config: Dictionary containing evaluation configuration
-                - dataset_path: Path to the local dataset
                 - task_ids: List of task IDs to run
+                - dataset_name: Name of the dataset to run
+                - dataset_version: Version of the dataset to run
                 - white_agent_url: URL of the agent being evaluated
                 - n_attempts: Number of attempts per task
                 - n_concurrent_trials: Number of concurrent trials
@@ -82,7 +83,6 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Extract configuration (with defaults from settings)
         white_agent_url = config.get("white_agent_url", settings.white_agent_url)
-        dataset_path = config.get("dataset_path", settings.dataset_path)
         dataset_name = config.get("dataset_name", settings.dataset_name)
         dataset_version = config.get("dataset_version", settings.dataset_version)
         task_ids = config.get("task_ids")
@@ -95,15 +95,12 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         )
 
         logger.info(f"Evaluating agent at: {white_agent_url}")
-        if dataset_path:
-            logger.info(f"Dataset path: {dataset_path}")
-        else:
-            logger.info(f"Dataset: {dataset_name} (version: {dataset_version})")
+        logger.info(f"Dataset: {dataset_name} (version: {dataset_version})")
         logger.info(f"Task IDs: {task_ids}")
 
         # Create harness instance
         # Note: We use agent_import_path to specify our custom A2A agent adapter
-        # Terminal-bench supports either dataset_path OR dataset_name/version
+        # Terminal-bench supports dataset_name/version
         harness_kwargs = {
             "output_path": output_path,
             "run_id": run_id,
@@ -117,12 +114,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             "log_level": getattr(logging, settings.log_level),
         }
 
-        # Add dataset configuration - either path or name/version
-        if dataset_path:
-            harness_kwargs["dataset_path"] = Path(dataset_path)
-        else:
-            harness_kwargs["dataset_name"] = dataset_name
-            harness_kwargs["dataset_version"] = dataset_version
+        # Add dataset configuration
+        harness_kwargs["dataset_name"] = dataset_name
+        harness_kwargs["dataset_version"] = dataset_version
 
         harness = Harness(**harness_kwargs)
 

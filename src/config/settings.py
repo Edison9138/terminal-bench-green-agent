@@ -119,11 +119,6 @@ class Settings:
         """Get OpenAI API key from environment."""
         return os.getenv("OPENAI_API_KEY")
 
-    @property
-    def anthropic_api_key(self) -> str | None:
-        """Get Anthropic API key from environment."""
-        return os.getenv("ANTHROPIC_API_KEY")
-
     # Green Agent Settings
     @property
     def green_agent_host(self) -> str:
@@ -218,52 +213,92 @@ class Settings:
 
     @property
     def white_agent_url(self) -> str:
-        """Get white agent URL from environment or default."""
-        return os.getenv("WHITE_AGENT_URL", "http://localhost:8001")
+        """Get white agent URL."""
+        return f"http://{self.white_agent_host}:{self.white_agent_port}"
 
     @property
     def agent_max_iterations(self) -> int:
-        """Get maximum number of agent iterations (default: 10)."""
-        iterations = self.get("white_agent.max_iterations", 10)
+        """Get maximum number of agent iterations"""
+        iterations = self.get("white_agent.max_iterations")
+        if iterations is None:
+            raise ConfigurationError(
+                "white_agent.max_iterations is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                "max_iterations = 10"
+            )
         return int(iterations)
 
     @property
     def blocked_commands(self) -> list[str]:
         """Get list of blocked commands for safety (default: empty list)."""
-        commands = self.get("white_agent.blocked_commands", [])
-        # Handle case where it's a comma-separated string from env var
-        if isinstance(commands, str):
-            return [c.strip() for c in commands.split(",") if c.strip()]
-        return commands if commands else []
+        commands = self.get("white_agent.blocked_commands")
+        if commands is None:
+            raise ConfigurationError(
+                "white_agent.blocked_commands is required. Please set it in config.toml:\n"
+                "[white_agent]\n"
+                "blocked_commands = []"
+            )
+        return commands
 
     # Evaluation Settings
     @property
     def eval_output_path(self) -> str:
         """Get evaluation output path."""
-        return self.get("evaluation.output_path", "./eval_results")
+        path = self.get("evaluation.output_path")
+        if not path:
+            raise ConfigurationError(
+                "evaluation.output_path is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                'output_path = "./eval_results"'
+            )
+        return path
 
     @property
     def eval_n_attempts(self) -> int:
         """Get number of evaluation attempts."""
-        attempts = self.get("evaluation.n_attempts", 1)
+        attempts = self.get("evaluation.n_attempts")
+        if attempts is None:
+            raise ConfigurationError(
+                "evaluation.n_attempts is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                "n_attempts = 1"
+            )
         return int(attempts)
 
     @property
     def eval_n_concurrent_trials(self) -> int:
         """Get number of concurrent trials."""
-        trials = self.get("evaluation.n_concurrent_trials", 1)
+        trials = self.get("evaluation.n_concurrent_trials")
+        if trials is None:
+            raise ConfigurationError(
+                "evaluation.n_concurrent_trials is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                "n_concurrent_trials = 1"
+            )
         return int(trials)
 
     @property
     def eval_timeout_multiplier(self) -> float:
         """Get timeout multiplier."""
-        multiplier = self.get("evaluation.timeout_multiplier", 1.0)
+        multiplier = self.get("evaluation.timeout_multiplier")
+        if multiplier is None:
+            raise ConfigurationError(
+                "evaluation.timeout_multiplier is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                "timeout_multiplier = 1.0"
+            )
         return float(multiplier)
 
     @property
     def eval_cleanup(self) -> bool:
         """Get cleanup setting."""
-        cleanup = self.get("evaluation.cleanup", False)
+        cleanup = self.get("evaluation.cleanup")
+        if cleanup is None:
+            raise ConfigurationError(
+                "evaluation.cleanup is required. Please set it in config.toml:\n"
+                "[evaluation]\n"
+                "cleanup = false"
+            )
         return bool(cleanup)
 
     @property
@@ -284,59 +319,77 @@ class Settings:
 
     # Dataset Settings
     @property
-    def dataset_path(self) -> str | None:
-        """Get dataset path (optional - terminal-bench manages datasets automatically)."""
-        # Environment variable takes precedence
-        env_path = os.getenv("DATASET_PATH")
-        if env_path:
-            return env_path
-
-        # Check if dataset path is specified in config
-        path = self.get("dataset.path")
-        if path:
-            return path
-
-        # If no path specified, terminal-bench will use its default dataset management
-        return None
-
-    @property
     def dataset_name(self) -> str:
         """Get dataset name for automatic dataset management."""
-        return self.get("dataset.name", "terminal-bench-core")
+        name = self.get("dataset.name")
+        if not name:
+            raise ConfigurationError(
+                "dataset.name is required. Please set it in config.toml:\n"
+                "[dataset]\n"
+                'name = "terminal-bench-core"'
+            )
+        return name
 
     @property
     def dataset_version(self) -> str:
         """Get dataset version for automatic dataset management."""
-        return self.get("dataset.version", "head")
+        version = self.get("dataset.version")
+        if not version:
+            raise ConfigurationError(
+                "dataset.version is required. Please set it in config.toml:\n"
+                "[dataset]\n"
+                'version = "head"'
+            )
+        return version
 
     # Logging Settings
     @property
     def log_level(self) -> str:
         """Get log level."""
-        # Environment variable takes precedence
-        env_level = os.getenv("LOG_LEVEL")
-        if env_level:
-            return env_level
-        return self.get("logging.level", "INFO")
+        level = self.get("logging.level")
+        if not level:
+            raise ConfigurationError(
+                "logging.level is required. Please set it in config.toml:\n"
+                "[logging]\n"
+                'level = "INFO"'
+            )
+        return level
 
     @property
     def log_format(self) -> str:
         """Get log format."""
-        return self.get(
-            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        format = self.get("logging.format")
+        if not format:
+            raise ConfigurationError(
+                "logging.format is required. Please set it in config.toml:\n"
+                "[logging]\n"
+                'format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"'
+            )
+        return format
 
     # A2A Settings
     @property
     def a2a_message_timeout(self) -> float:
         """Get timeout for sending messages to agents in seconds (default: 300.0)."""
-        timeout = self.get("a2a.message_timeout", 300.0)
+        timeout = self.get("a2a.message_timeout")
+        if timeout is None:
+            raise ConfigurationError(
+                "a2a.message_timeout is required. Please set it in config.toml:\n"
+                "[a2a]\n"
+                "message_timeout = 300.0"
+            )
         return float(timeout)
 
     @property
     def a2a_health_check_timeout(self) -> float:
         """Get timeout for health check requests in seconds (default: 5.0)."""
-        timeout = self.get("a2a.health_check_timeout", 5.0)
+        timeout = self.get("a2a.health_check_timeout")
+        if timeout is None:
+            raise ConfigurationError(
+                "a2a.health_check_timeout is required. Please set it in config.toml:\n"
+                "[a2a]\n"
+                "health_check_timeout = 5.0"
+            )
         return float(timeout)
 
     def validate_required_settings(self) -> None:

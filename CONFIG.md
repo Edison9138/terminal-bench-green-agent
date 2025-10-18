@@ -74,7 +74,6 @@ custom_value = settings.get("custom.nested.key", "default_value")
 ### API Keys (in `.env`)
 
 - `OPENAI_API_KEY` - Required for LLM-based agents
-- `ANTHROPIC_API_KEY` - Optional, if using Claude
 
 ### URLs (in `.env` or config.toml)
 

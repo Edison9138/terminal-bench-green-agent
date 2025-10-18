@@ -17,13 +17,9 @@ task_config = {
     "timeout_multiplier": settings.eval_timeout_multiplier,
 }
 
-# Add dataset configuration if custom dataset path is specified
-if settings.dataset_path:
-    task_config["dataset_path"] = settings.dataset_path
-else:
-    # Use automatic dataset management
-    task_config["dataset_name"] = "terminal-bench-core"
-    task_config["dataset_version"] = "head"
+# Use automatic dataset management
+task_config["dataset_name"] = settings.dataset_name
+task_config["dataset_version"] = settings.dataset_version
 
 kick_off_message = f"""
 Launch terminal-bench evaluation to assess the tool-calling ability of the agent located at {task_config['white_agent_url']}.

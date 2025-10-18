@@ -1,6 +1,5 @@
 # Terminal-Bench Green Agent Configuration
-# Non-sensitive configuration settings - safe to commit to version control
-# For sensitive data (API keys, etc.), use .env file
+# Put OPENAI_API_KEY in .env file
 
 [project]
 name = "terminal-bench-green-agent"
@@ -10,67 +9,68 @@ version = "1.0.0"
 # Green Agent Settings (Evaluator)
 # ============================================================================
 [green_agent]
-# REQUIRED: Host to bind the green agent server to
+# Host to bind the green agent server to
 # Use "0.0.0.0" to accept connections from any network interface
 # Use "127.0.0.1" for localhost-only access
 host = "0.0.0.0"
 
-# REQUIRED: Port for the green agent server
+# Port for the green agent server
 port = 9999
 
-# REQUIRED: Path to the green agent's A2A card file
+# Path to the green agent's A2A card file
 card_path = "src/green_agent/card.toml"
 
 # ============================================================================
 # White Agent Settings (Agent Under Test)
 # ============================================================================
 [white_agent]
-# REQUIRED: Host where the white agent is running
+# Host where the white agent is running
 # Typically "0.0.0.0" if running the included white agent
 host = "0.0.0.0"
 
-# REQUIRED: Port where the white agent is running
+# Port where the white agent is running
 port = 8001
 
-# REQUIRED: Path to the white agent's A2A card file
+# Path to the white agent's A2A card file
 card_path = "white_agent/white_agent_card.toml"
 
-# REQUIRED: LLM model to use for the white agent
-# Can be overridden by WHITE_AGENT_MODEL environment variable
-# Examples: "gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"
+# OpenAI LLM model to use for the white agent
+# Examples: "gpt-4o-mini", "gpt-4o"
 model = "gpt-4o-mini"
 
-# Optional: Maximum number of iterations the agent can perform (default: 10)
+# Maximum number of iterations the agent can perform (default: 10)
+# This is the maximum number of times the agent will try to solve a task
 max_iterations = 10
 
-# Optional: List of commands to block for safety (default: empty list)
+# List of commands to block for safety (default: empty list)
 # Examples: ["rm", "sudo", "reboot"]
+# This is a list of commands that the agent will not be allowed to use
 blocked_commands = []
 
 # ============================================================================
 # Terminal-Bench Evaluation Settings
 # ============================================================================
 [evaluation]
-# REQUIRED: List of task IDs to evaluate
+# List of task IDs to evaluate
 # Task IDs are directory names from terminal-bench tasks
 # Examples: ["hello-world", "create-bucket", "csv-to-parquet"]
 # You MUST specify at least one task ID - there is no "run all" option
 task_ids = ["hello-world"]
 
-# Optional: Output directory for evaluation results (default: ./eval_results)
+# Output directory for evaluation results (default: ./eval_results)
 output_path = "./eval_results"
 
-# Optional: Number of attempts per task (default: 1)
+# Number of attempts per task (default: 1)
 n_attempts = 1
 
-# Optional: Number of concurrent trials (default: 1)
+# Number of concurrent trials (default: 1)
 n_concurrent_trials = 1
 
-# Optional: Timeout multiplier for task execution (default: 1.0)
+# Timeout multiplier for task execution (default: 1.0)
 timeout_multiplier = 1.0
 
-# Optional: Cleanup Docker containers after evaluation (default: false)
-cleanup = false
+# Cleanup Docker containers after evaluation (default: false)
+cleanup = true
 
 # ============================================================================
 # Dataset Settings
@@ -81,29 +81,26 @@ cleanup = false
 
 # For automatic dataset management (recommended):
 [dataset]
-name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
-version = "head"              # Optional: default "head"
-
-# For custom datasets, uncomment and set:
-# path = "/path/to/custom/dataset"  # Path to custom terminal-bench dataset
+name = "terminal-bench-core"  
+version = "head"
 
 # ============================================================================
 # Logging Configuration
 # ============================================================================
 [logging]
-# Optional: Log level (default: INFO)
+# Log level (default: INFO)
 # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 level = "INFO"
 
-# Optional: Log format string (default shown below)
+# Log format string (default shown below)
 format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # ============================================================================
 # A2A Protocol Settings
 # ============================================================================
 [a2a]
-# Optional: Timeout for sending messages to agents in seconds (default: 300.0)
+# Timeout for sending messages to agents in seconds (default: 300.0)
 message_timeout = 300.0
 
-# Optional: Timeout for health check requests in seconds (default: 5.0)
+# Timeout for health check requests in seconds (default: 5.0)
 health_check_timeout = 5.0
