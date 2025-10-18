@@ -105,6 +105,7 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                 command,
             ]
 
+            # Execute the command inside the Docker container
             process = await asyncio.create_subprocess_exec(
                 *docker_command,
                 stdout=asyncio.subprocess.PIPE,
@@ -328,7 +329,7 @@ def main():
         raise SystemExit(1)
 
     print(
-        f"Starting LLM-Powered White Agent on {settings.white_agent_host}:{settings.white_agent_port}"
+        f"Starting White Agent on {settings.white_agent_host}:{settings.white_agent_port}"
     )
     print(f"Using agent card: {settings.white_agent_card_path}")
     print(f"Model: {settings.white_agent_model}")
