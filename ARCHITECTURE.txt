@@ -10,14 +10,14 @@
 └───────────────────────────────────────────────────────────────────────────┘
 
 
-    [1] KICKOFF SCRIPT (kickoff_terminal_bench.py)
+    [1] KICKOFF SCRIPT (src/kickoff.py)
          │
          │  Prepares evaluation configuration:
          │  • Which terminal-bench tasks to run
          │  • White agent URL to evaluate
          │  • Evaluation parameters (attempts, timeout, etc.)
          │
-         ├─ Creates A2A message with config
+         ├─ Loads config from config.toml via settings
          │
          └─ HTTP POST to http://localhost:9999/agent/messages
                 │
@@ -32,7 +32,7 @@
                 │
                 ▼
 
-    [2] GREEN AGENT (green_agent.py) @ port 9999
+    [2] GREEN AGENT (src/green_agent/agent.py) @ port 9999
          │
          ├─ A2AStarletteApplication
          │   └─ Exposes A2A interface
@@ -45,9 +45,9 @@
          │   └─ Creates Terminal-Bench Harness:
          │
          │       harness = Harness(
-         │           agent_import_path="a2a_white_agent:A2AWhiteAgent",
+         │           agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
          │           agent_kwargs={"agent_url": "http://localhost:8001"},
-         │           task_ids=[1, 2, 3],
+         │           task_ids=["hello-world"],
          │           ...
          │       )
          │
@@ -72,7 +72,7 @@
          │      • Creates tmux session
          │
          ├─ [c] Create agent instance
-         │      • Imports: a2a_white_agent.A2AWhiteAgent
+         │      • Imports: src.adapters.a2a_white_agent.A2AWhiteAgent
          │      • Passes: agent_url="http://localhost:8001"
          │      │
          │      └─ Creates A2AWhiteAgent(agent_url="http://localhost:8001")
@@ -83,7 +83,7 @@
          │                │
          │                ▼
 
-    [3] A2A WHITE AGENT ADAPTER (a2a_white_agent.py)
+    [3] A2A WHITE AGENT ADAPTER (src/adapters/a2a_white_agent.py)
          │
          │  class A2AWhiteAgent(BaseAgent):
          │      # Implements terminal-bench's BaseAgent interface
@@ -94,7 +94,7 @@
          │   ├─ Formats task instruction for A2A agent
          │   │   "You are being evaluated on Terminal-Bench..."
          │   │   "TASK: {instruction}"
-         │   │   "Use terminal tools to solve this..."
+         │   │   "Use execute_bash_command tool to solve this..."
          │   │
          │   ├─ Sends A2A message to white agent
          │   │   └─ await send_message_to_agent(message, agent_url)
@@ -102,7 +102,7 @@
          │   │       └─ HTTP POST to http://localhost:8001/agent/messages
          │   │
          │   ├─ Receives A2A response
-         │   │   └─ Parses response.root.result.parts[0].root.text
+         │   │   └─ Parses response from streaming events
          │   │
          │   └─ Returns AgentResult(failure_mode, tokens, ...)
          │
@@ -118,10 +118,10 @@
                 }                                   │
                                                     ▼
 
-    [4] WHITE AGENT (your implementation) @ port 8001
+    [4] WHITE AGENT (white_agent/llm_white_agent.py) @ port 8001
          │
          │  Examples:
-         │  • llm_white_agent.py (LLM-powered agent)
+         │  • llm_white_agent.py (LLM-powered agent with function calling)
          │  • OpenAI Agents SDK + to_a2a()
          │  • Google ADK + to_a2a()
          │  • AgentBeats BeatsAgent
@@ -130,29 +130,28 @@
          ├─ A2AStarletteApplication
          │   └─ Exposes A2A interface @ http://localhost:8001
          │
-         ├─ YourAgentExecutor(AgentExecutor)
+         ├─ LLMWhiteAgentExecutor(AgentExecutor)
          │   │
          │   └─ async execute(context, event_queue):
          │       │
          │       ├─ Receives task instruction via A2A
          │       │
-         │       ├─ Processes with LLM:
+         │       ├─ Processes with LLM (OpenAI with function calling):
          │       │   • Understands task
          │       │   • Plans solution
          │       │   • Generates commands
          │       │
          │       ├─ Executes using tools:
-         │       │   • Terminal command execution
-         │       │   • File operations
-         │       │   • etc.
+         │       │   • execute_bash_command(cmd) → runs in Docker container
+         │       │   • Extracts container name from instruction
+         │       │   • Iterates until task complete or max iterations
          │       │
          │       └─ Returns solution via A2A
          │
          └─ Tools/MCP Servers:
-             • execute_terminal_command(cmd) → output
-             • read_file(path) → content
-             • write_file(path, content) → success
-             • ... (your tools here)
+             • execute_bash_command(cmd) → docker exec in container
+             • Safety checks (blocked commands list)
+             • Working directory: /app
 
                                 ▲
                                 │  A2A Response:
@@ -219,28 +218,36 @@
                   A2A             Python           A2A
 Kickoff ────────────────> Green ──────────> Adapter ──────────> White
 Script        (HTTP)      Agent   (method)          (HTTP)      Agent
-                                    ↓
-                                 Harness
-                                    ↓
-                              Docker + Tests
+                            ↓
+                         Harness
+                            ↓
+                      Docker + Tests
 
 
 ================================================================================
                             FILE MAPPING
 ================================================================================
 
-kickoff_terminal_bench.py       ─→  [1] Kickoff Script
-green_agent.py                  ─→  [2] Green Agent
-green_agent_card.toml           ─→  [2] Green Agent Config
-a2a_white_agent.py             ─→  [3] A2A Adapter
-utils/a2a_client.py            ─→  [3] A2A Communication Helpers
-llm_white_agent.py              ─→  [4] LLM-Powered White Agent
-white_agent_card.toml           ─→  [4] White Agent Config
+src/kickoff.py                      ─→  [1] Kickoff Script
+src/green_agent/agent.py            ─→  [2] Green Agent
+src/green_agent/card.toml           ─→  [2] Green Agent A2A Card
+src/adapters/a2a_white_agent.py     ─→  [3] A2A Adapter
+src/utils/a2a_client.py             ─→  [3] A2A Communication Helpers
+src/config/settings.py              ─→  Configuration Loader
+config.toml                         ─→  Main Configuration File
+white_agent/llm_white_agent.py      ─→  [4] LLM-Powered White Agent
+white_agent/white_agent_card.toml   ─→  [4] White Agent A2A Card
 
 Terminal-bench (installed package):
   terminal_bench/harness/harness.py   ─→  Harness implementation
   terminal_bench/agents/base_agent.py ─→  BaseAgent interface
   terminal_bench/dataset/dataset.py   ─→  Task loading
+
+Scripts:
+  scripts/start_green_agent.sh       ─→  Start green agent server
+  scripts/start_white_agent.sh       ─→  Start white agent server
+  scripts/run_eval.sh                ─→  Run evaluation kickoff
+  scripts/check_docker.sh            ─→  Verify Docker setup
 
 
 ================================================================================
@@ -248,7 +255,7 @@ Terminal-bench (installed package):
 ================================================================================
 
 Request:
-  JSON Config → A2A Message → Green Agent → Harness Config → A2A Adapter Config
+  config.toml → Settings → Kickoff → A2A Message → Green Agent → Harness Config
 
 Task Execution:
   Task YAML → Instruction → A2A Message → White Agent → Solution → A2A Response
@@ -262,16 +269,16 @@ Results:
 ================================================================================
 
 Green Agent (Evaluator):
-  • Port: 9999 (configurable)
+  • Port: 9999 (configurable via config.toml [green_agent.port])
   • Endpoints:
     - POST /agent/messages    (receive evaluation requests)
-    - GET  /agent/card        (agent card)
+    - GET  /.well-known/agent.json  (agent card)
 
 White Agent (Subject):
-  • Port: 8001 (configurable)
+  • Port: 8001 (configurable via config.toml [white_agent.port])
   • Endpoints:
     - POST /agent/messages    (receive task instructions)
-    - GET  /agent/card        (agent card)
+    - GET  /.well-known/agent.json  (agent card)
 
 
 ================================================================================
@@ -281,32 +288,57 @@ White Agent (Subject):
 terminal-bench-green-agent/
 │
 ├── Core Implementation
-│   ├── kickoff_terminal_bench.py      [Start evaluation]
-│   ├── green_agent.py                 [Evaluator agent]
-│   ├── a2a_white_agent.py            [Protocol adapter]
-│   └── utils/a2a_client.py           [A2A helpers]
+│   ├── src/
+│   │   ├── __init__.py
+│   │   ├── __main__.py                  [Main entry point]
+│   │   ├── kickoff.py                   [Start evaluation]
+│   │   │
+│   │   ├── green_agent/
+│   │   │   ├── __init__.py
+│   │   │   ├── __main__.py              [Green agent entry point]
+│   │   │   ├── agent.py                 [Evaluator agent]
+│   │   │   └── card.toml                [Green agent A2A card]
+│   │   │
+│   │   ├── adapters/
+│   │   │   ├── __init__.py
+│   │   │   └── a2a_white_agent.py       [Protocol adapter]
+│   │   │
+│   │   ├── config/
+│   │   │   ├── __init__.py
+│   │   │   └── settings.py              [Config loader]
+│   │   │
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       └── a2a_client.py            [A2A helpers]
+│   │
+│   └── white_agent/
+│       ├── __init__.py
+│       ├── __main__.py                  [White agent entry point]
+│       ├── llm_white_agent.py           [LLM-powered agent]
+│       └── white_agent_card.toml        [White agent A2A card]
 │
 ├── Configuration
-│   ├── green_agent_card.toml          [Green agent config]
-│   ├── white_agent_card.toml          [White agent config]
-│   └── requirements.txt               [Dependencies]
+│   ├── config.toml                      [Main configuration]
+│   ├── .env.example                     [API keys template]
+│   └── requirements.txt                 [Dependencies]
 │
-├── White Agent
-│   └── llm_white_agent.py             [LLM-powered agent]
+├── Scripts
+│   ├── start_green_agent.sh             [Start green agent]
+│   ├── start_white_agent.sh             [Start white agent]
+│   ├── run_eval.sh                      [Run evaluation]
+│   └── check_docker.sh                  [Check Docker setup]
 │
 ├── Documentation
-│   ├── README.md                      [Overview]
-│   ├── SETUP.md                       [Setup guide]
-│   ├── UNDERSTANDING.md               [Architecture deep dive]
-│   ├── QUICK_START.md                 [Quick start]
-│   └── ARCHITECTURE.txt               [This file]
+│   ├── README.md                        [Overview & quick start]
+│   ├── SETUP.md                         [Setup guide]
+│   └── ARCHITECTURE.txt                 [This file]
 │
 └── Results (created at runtime)
     └── eval_results/
         └── green_agent_eval_TIMESTAMP/
-            ├── results.json           [Overall results]
-            ├── run_metadata.json      [Run info]
-            └── task_001/              [Per-task results]
+            ├── results.json             [Overall results]
+            ├── run_metadata.json        [Run info]
+            └── task_001/                [Per-task results]
                 └── task_001.1.run_id/
                     ├── results.json
                     ├── sessions/
@@ -314,37 +346,72 @@ terminal-bench-green-agent/
 
 
 ================================================================================
+                            CONFIGURATION
+================================================================================
+
+Configuration is managed through two files:
+
+1. config.toml - All non-sensitive settings
+   • Green/white agent hosts and ports
+   • Evaluation parameters (task_ids, attempts, etc.)
+   • Dataset settings
+   • Logging configuration
+   • A2A protocol timeouts
+
+2. .env - Sensitive data (API keys)
+   • OPENAI_API_KEY
+
+Configuration loader (src/config/settings.py):
+   • Loads config.toml using tomllib
+   • Loads .env using python-dotenv
+   • Provides type-safe property accessors
+   • Validates required settings on startup
+   • Environment variables can override TOML settings
+
+Usage in code:
+   from src.config import settings
+
+   api_key = settings.openai_api_key
+   port = settings.green_agent_port
+   tasks = settings.eval_task_ids
+
+
+================================================================================
                             WHAT HAPPENS WHEN
 ================================================================================
 
-When you run:  python kickoff_terminal_bench.py
+When you run:  python -m src.kickoff
 
-1. Kickoff script creates config JSON
-2. Wraps config in A2A message
-3. POSTs to green agent @ http://localhost:9999/agent/messages
-4. Green agent receives message
-5. Green agent parses config from message
-6. Green agent creates Harness instance
-7. Green agent calls harness.run()
-8. Harness loads tasks from dataset
-9. For each task:
-   a. Creates Docker environment
-   b. Creates A2AWhiteAgent instance
-   c. Calls agent.perform_task()
-   d. A2AWhiteAgent formats task instruction
+1. Kickoff script loads config from config.toml via Settings
+2. Creates task_config dict with evaluation parameters
+3. Wraps config in A2A message
+4. POSTs to green agent @ http://localhost:9999/agent/messages
+5. Green agent receives message
+6. Green agent parses config from message
+7. Green agent creates Harness instance with config
+8. Green agent calls harness.run()
+9. Harness loads tasks from dataset (terminal-bench-core)
+10. For each task:
+   a. Creates Docker environment for task
+   b. Creates A2AWhiteAgent instance with white_agent_url
+   c. Calls agent.perform_task(instruction, session, logging_dir)
+   d. A2AWhiteAgent formats task instruction with container info
    e. A2AWhiteAgent POSTs to white agent @ http://localhost:8001/agent/messages
-   f. White agent receives task
-   g. White agent uses LLM + tools to solve
-   h. White agent returns solution via A2A
-   i. A2AWhiteAgent receives response
-   j. A2AWhiteAgent returns AgentResult to harness
-   k. Harness runs tests
-   l. Harness scores results
-   m. Harness saves results to disk
-10. Harness returns BenchmarkResults
-11. Green agent formats results
-12. Green agent returns results via A2A to kickoff script
-13. Kickoff script displays results
+   f. White agent receives task via A2A
+   g. White agent extracts container name from instruction
+   h. White agent uses LLM + function calling to solve
+   i. White agent calls execute_bash_command tool repeatedly
+   j. Each command runs via: docker exec -w /app <container> bash -c <cmd>
+   k. White agent returns solution via A2A streaming response
+   l. A2AWhiteAgent receives response from send_message_to_agent()
+   m. A2AWhiteAgent returns AgentResult to harness
+   n. Harness runs tests (run-tests.sh in container)
+   o. Harness scores results (pass/fail)
+   p. Harness saves results to eval_results/
+11. Harness returns BenchmarkResults to green agent
+12. Green agent formats results with accuracy, pass/fail per task
+13. Green agent returns results via A2A to kickoff script
+14. Kickoff script displays results
 
 
 ================================================================================
@@ -354,23 +421,93 @@ When you run:  python kickoff_terminal_bench.py
 ✓ Why A2A Protocol?
   → Standard agent-to-agent communication
   → Allows any agent implementation (OpenAI, ADK, custom, etc.)
-  → Well-defined message format
+  → Well-defined message format with streaming support
+  → Easy to swap out white agents without changing green agent
 
 ✓ Why Adapter Pattern?
   → Terminal-bench expects BaseAgent interface
   → White agents expose A2A interface
   → Adapter bridges the two without modifying either
+  → Keeps terminal-bench harness reusable
 
 ✓ Why Wrap Harness Instead of Reimplementing?
   → Terminal-bench harness is complex (Docker, tmux, testing, etc.)
-  → Reusing it ensures correctness
-  → Easier to maintain and update
+  → Reusing it ensures correctness and compatibility
+  → Easier to maintain and get updates
+  → Focus on evaluation logic, not infrastructure
 
 ✓ Why Three Separate Processes?
   → Modularity: Each component can be developed/tested independently
   → Flexibility: Can evaluate different agents without restarting green agent
   → Scalability: Can distribute across machines if needed
+  → Clear separation of concerns
+
+✓ Why Centralized Configuration?
+  → Single source of truth (config.toml)
+  → Type-safe access via Settings class
+  → Easy to override via environment variables
+  → Validates on startup (fail fast)
+  → No hardcoded values scattered in code
+
+✓ Why Package Structure (src/)?
+  → Clean module organization
+  → Proper Python package imports
+  → Easy to extend with new components
+  → Clear separation of green agent, adapters, config, utils
+  → Supports both script and module usage
 
 
 ================================================================================
+                          MODULE IMPORT PATHS
+================================================================================
 
+Running as scripts:
+  python -m src.kickoff
+  python -m src.green_agent
+  python -m white_agent
+
+Importing in code:
+  from src.config import settings
+  from src.green_agent.agent import TerminalBenchGreenAgentExecutor
+  from src.adapters.a2a_white_agent import A2AWhiteAgent
+  from src.utils.a2a_client import send_message_to_agent
+  from white_agent.llm_white_agent import LLMWhiteAgentExecutor
+
+Harness agent import path:
+  "src.adapters.a2a_white_agent:A2AWhiteAgent"
+  → Used by terminal-bench to dynamically import the adapter
+
+
+================================================================================
+                          CRITICAL DETAILS
+================================================================================
+
+Container Working Directory:
+  • All commands execute at /app inside Docker containers
+  • White agent extracts container name from task instruction
+  • docker exec -w /app <container> bash -c <command>
+
+A2A Message Flow:
+  • Kickoff → Green: Evaluation configuration
+  • Adapter → White: Task instruction + container info
+  • White → Adapter: Solution as streaming text parts
+  • Green → Kickoff: Formatted results
+
+Configuration Loading Order:
+  1. config.toml (base settings)
+  2. .env file (API keys)
+  3. Environment variables (highest priority)
+
+Safety Features:
+  • Blocked commands list (configurable)
+  • Max iterations limit (prevents infinite loops)
+  • Timeouts at multiple levels (A2A, harness, Docker)
+
+Results Storage:
+  • eval_results/green_agent_eval_TIMESTAMP/
+  • Contains results.json, metadata, per-task logs
+  • Includes terminal recordings, command history
+  • Agent interaction logs in agent_interaction.log
+
+
+================================================================================
