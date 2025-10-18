@@ -15,11 +15,9 @@ task_config = {
     "n_attempts": settings.eval_n_attempts,
     "n_concurrent_trials": settings.eval_n_concurrent_trials,
     "timeout_multiplier": settings.eval_timeout_multiplier,
+    "dataset_name": settings.dataset_name,
+    "dataset_version": settings.dataset_version,
 }
-
-# Use automatic dataset management
-task_config["dataset_name"] = settings.dataset_name
-task_config["dataset_version"] = settings.dataset_version
 
 kick_off_message = f"""
 Launch terminal-bench evaluation to assess the tool-calling ability of the agent located at {task_config['white_agent_url']}.

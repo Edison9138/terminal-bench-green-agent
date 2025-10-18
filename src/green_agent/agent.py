@@ -100,10 +100,11 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Create harness instance
         # Note: We use agent_import_path to specify our custom A2A agent adapter
-        # Terminal-bench supports dataset_name/version
         harness_kwargs = {
             "output_path": output_path,
             "run_id": run_id,
+            "dataset_name": dataset_name,
+            "dataset_version": dataset_version,
             "agent_import_path": "src.adapters.a2a_white_agent:A2AWhiteAgent",
             "agent_kwargs": {"agent_url": white_agent_url},
             "task_ids": [str(tid) for tid in task_ids] if task_ids else None,
@@ -113,11 +114,6 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             "cleanup": settings.eval_cleanup,
             "log_level": getattr(logging, settings.log_level),
         }
-
-        # Add dataset configuration
-        harness_kwargs["dataset_name"] = dataset_name
-        harness_kwargs["dataset_version"] = dataset_version
-
         harness = Harness(**harness_kwargs)
 
         # Run the evaluation
@@ -138,8 +134,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 Terminal-Bench Evaluation Results
 =====================================
 
-Agent Under Test: {config.get('white_agent_url', 'Unknown')}
-Dataset: {config.get('dataset_name', 'terminal-bench')}
+Agent Under Test: {config.get('white_agent_url')}
 Tasks Evaluated: {len(results.results)}
 
 Overall Performance:
