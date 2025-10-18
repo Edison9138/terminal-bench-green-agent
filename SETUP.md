@@ -38,11 +38,6 @@ docker ps  # Check Docker is running
 - **`.env`** - API keys and secrets. Already gitignored, never commit.
 - **`.env.example`** - Template for `.env`
 
-### Configuration Hierarchy
-
-1. Environment variables (highest priority)
-2. `config.toml` settings
-
 **ALL fields in config.toml are REQUIRED.** The app will fail with helpful error messages if any are missing.
 
 ### Complete config.toml Example
@@ -95,15 +90,13 @@ defaultInputModes = ["text"]
 defaultOutputModes = ["text"]
 
 [capabilities]
-streaming = true  # REQUIRED
+streaming = true
 
 [[skills]]  # Double brackets!
 id = "skill_id"
 name = "Skill Name"
 description = "What this skill does"
 ```
-
-**Common mistakes:** `[description]` section (wrong), `[skills]` (wrong), `streaming = false` (wrong).
 
 ## Building Your White Agent
 
