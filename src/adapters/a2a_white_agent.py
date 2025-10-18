@@ -38,8 +38,6 @@ class A2AWhiteAgent(BaseAgent):
             **kwargs: Additional arguments (ignored)
         """
         self.agent_url = agent_url
-        self._timestamped_markers = []
-        self._current_session = None
         logger.info(f"A2AWhiteAgent initialized with agent at: {agent_url}")
 
     @classmethod
@@ -144,15 +142,8 @@ Please proceed with the task.
         # Format the instruction for the agent
         formatted_message = self._format_task_instruction(instruction, session)
 
-        # Send to agent and get response (using asyncio)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            response = loop.run_until_complete(
-                self._send_to_agent_async(formatted_message)
-            )
-        finally:
-            loop.close()
+        # Send to agent and get response (using asyncio.run for proper event loop management)
+        response = asyncio.run(self._send_to_agent_async(formatted_message))
 
         # Log the interaction
         log_file = logging_dir / "agent_interaction.log"
@@ -174,20 +165,15 @@ Please proceed with the task.
         else:
             logger.info("Agent completed task successfully")
 
-        # Create result
-        # Token counting: estimate based on response length
-        # (Real implementation would track actual LLM usage)
-        estimated_input_tokens = len(formatted_message) // 4  # Rough estimate: 4 chars per token
-        estimated_output_tokens = len(response) // 4
-
-        result = AgentResult(
+        # Note: Token counting is set to 0 because we don't have access to the actual
+        # LLM token counts from the white agent. If the white agent returns token usage
+        # in its response metadata, you could parse and use those values here.
+        return AgentResult(
             failure_mode=failure_mode,
-            timestamped_markers=self._timestamped_markers,
-            total_input_tokens=estimated_input_tokens,
-            total_output_tokens=estimated_output_tokens,
+            timestamped_markers=[],  # Terminal-bench will track markers
+            total_input_tokens=0,
+            total_output_tokens=0,
         )
-
-        return result
 
     def cleanup(self) -> None:
         """Cleanup any resources (optional)."""

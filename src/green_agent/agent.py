@@ -10,7 +10,7 @@ import tomllib
 import uvicorn
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.tasks import InMemoryTaskStore
@@ -25,6 +25,7 @@ from terminal_bench.harness.harness import Harness
 from terminal_bench.harness.models import BenchmarkResults
 
 from src.config import settings
+from src.config.settings import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         self.evaluation_history = []
         logger.info("TerminalBenchGreenAgentExecutor initialized")
 
-    def parse_task_config(self, user_input: str) -> Dict[str, Any]:
+    def parse_task_config(self, user_input: str) -> dict[str, Any]:
         """
         Parse task configuration from user input.
         Extracts JSON config from <task_config> tags.
@@ -56,14 +57,15 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         except json.JSONDecodeError:
             raise ValueError("Could not parse task configuration from user input")
 
-    def run_terminal_bench_evaluation(self, config: Dict[str, Any]) -> BenchmarkResults:
+    def run_terminal_bench_evaluation(self, config: dict[str, Any]) -> BenchmarkResults:
         """
         Run terminal-bench harness with the given configuration.
 
         Args:
             config: Dictionary containing evaluation configuration
-                - dataset_path: Path to the local dataset
                 - task_ids: List of task IDs to run
+                - dataset_name: Name of the dataset to run
+                - dataset_version: Version of the dataset to run
                 - white_agent_url: URL of the agent being evaluated
                 - n_attempts: Number of attempts per task
                 - n_concurrent_trials: Number of concurrent trials
@@ -81,7 +83,8 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Extract configuration (with defaults from settings)
         white_agent_url = config.get("white_agent_url", settings.white_agent_url)
-        dataset_path = config.get("dataset_path", settings.dataset_path)
+        dataset_name = config.get("dataset_name", settings.dataset_name)
+        dataset_version = config.get("dataset_version", settings.dataset_version)
         task_ids = config.get("task_ids")
         n_attempts = config.get("n_attempts", settings.eval_n_attempts)
         n_concurrent_trials = config.get(
@@ -92,24 +95,26 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         )
 
         logger.info(f"Evaluating agent at: {white_agent_url}")
-        logger.info(f"Dataset path: {dataset_path}")
+        logger.info(f"Dataset: {dataset_name} (version: {dataset_version})")
         logger.info(f"Task IDs: {task_ids}")
 
         # Create harness instance
         # Note: We use agent_import_path to specify our custom A2A agent adapter
-        harness = Harness(
-            output_path=output_path,
-            run_id=run_id,
-            agent_import_path="src.adapters.a2a_white_agent:A2AWhiteAgent",
-            agent_kwargs={"agent_url": white_agent_url},
-            dataset_path=Path(dataset_path),
-            task_ids=[str(tid) for tid in task_ids] if task_ids else None,
-            n_attempts=n_attempts,
-            n_concurrent_trials=n_concurrent_trials,
-            global_timeout_multiplier=timeout_multiplier,
-            cleanup=settings.eval_cleanup,
-            log_level=getattr(logging, settings.log_level),
-        )
+        harness_kwargs = {
+            "output_path": output_path,
+            "run_id": run_id,
+            "dataset_name": dataset_name,
+            "dataset_version": dataset_version,
+            "agent_import_path": "src.adapters.a2a_white_agent:A2AWhiteAgent",
+            "agent_kwargs": {"agent_url": white_agent_url},
+            "task_ids": [str(tid) for tid in task_ids] if task_ids else None,
+            "n_attempts": n_attempts,
+            "n_concurrent_trials": n_concurrent_trials,
+            "global_timeout_multiplier": timeout_multiplier,
+            "cleanup": settings.eval_cleanup,
+            "log_level": getattr(logging, settings.log_level),
+        }
+        harness = Harness(**harness_kwargs)
 
         # Run the evaluation
         logger.info("Running terminal-bench harness...")
@@ -121,17 +126,13 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         return results
 
     def format_results_message(
-        self, results: BenchmarkResults, config: Dict[str, Any]
+        self, results: BenchmarkResults, config: dict[str, Any]
     ) -> str:
         """Format evaluation results into a human-readable message."""
 
         message = f"""
 Terminal-Bench Evaluation Results
 =====================================
-
-Agent Under Test: {config.get('white_agent_url', 'Unknown')}
-Dataset: {config.get('dataset_name', 'terminal-bench')}
-Tasks Evaluated: {len(results.results)}
 
 Overall Performance:
 - Accuracy: {results.accuracy:.2%}
@@ -187,7 +188,7 @@ Overall Performance:
         await updater.update_status(
             TaskState.working,
             new_agent_text_message(
-                "Received evaluation request. Parsing configuration...",
+                "Received evaluation request. Parsing configuration...\n",
                 task.context_id,
                 task.id,
             ),
@@ -206,7 +207,7 @@ Overall Performance:
             await updater.update_status(
                 TaskState.working,
                 new_agent_text_message(
-                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...",
+                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...\n",
                     task.context_id,
                     task.id,
                 ),
@@ -288,6 +289,15 @@ def main():
         level=getattr(logging, settings.log_level),
         format=settings.log_format,
     )
+
+    # Validate configuration before starting
+    try:
+        settings.validate_required_settings()
+        logger.info("Configuration validated successfully")
+    except ConfigurationError as e:
+        logger.error(f"Configuration error: {e}")
+        logger.error("Please check your config.toml and .env files")
+        raise SystemExit(1)
 
     logger.info(
         f"Starting Terminal-Bench Green Agent on {settings.green_agent_host}:{settings.green_agent_port}"

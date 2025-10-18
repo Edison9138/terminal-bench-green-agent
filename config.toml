@@ -1,49 +1,106 @@
 # Terminal-Bench Green Agent Configuration
-# Non-sensitive configuration settings - safe to commit to version control
-# For sensitive data (API keys, etc.), use .env file
+# Put OPENAI_API_KEY in .env file
 
 [project]
 name = "terminal-bench-green-agent"
 version = "1.0.0"
 
-# Green Agent Settings
+# ============================================================================
+# Green Agent Settings (Evaluator)
+# ============================================================================
 [green_agent]
-host = "0.0.0.0"                        # Optional: default 0.0.0.0
-port = 9999                              # Optional: default 9999
-card_path = "src/green_agent/card.toml" # REQUIRED
+# Host to bind the green agent server to
+# Use "0.0.0.0" to accept connections from any network interface
+# Use "127.0.0.1" for localhost-only access
+host = "0.0.0.0"
 
-# White Agent Settings (for testing)
+# Port for the green agent server
+port = 9999
+
+# Path to the green agent's A2A card file
+card_path = "src/green_agent/card.toml"
+
+# ============================================================================
+# White Agent Settings (Agent Under Test)
+# ============================================================================
 [white_agent]
-host = "0.0.0.0"                                 # Optional: default 0.0.0.0
-port = 8001                                      # Optional: default 8001
-card_path = "white_agent/white_agent_card.toml" # REQUIRED
-execution_root = "."                             # REQUIRED (can be overridden by WHITE_AGENT_EXECUTION_ROOT env var)
-model = "gpt-4o-mini"                            # REQUIRED (OpenAI model to use, can be overridden by WHITE_AGENT_MODEL env var)
+# Host where the white agent is running
+# Typically "0.0.0.0" if running the included white agent
+host = "0.0.0.0"
 
+# Port where the white agent is running
+port = 8001
+
+# Path to the white agent's A2A card file
+card_path = "white_agent/white_agent_card.toml"
+
+# OpenAI LLM model to use for the white agent
+# Examples: "gpt-4o-mini", "gpt-4o"
+model = "gpt-4o-mini"
+
+# Maximum number of iterations the agent can perform (default: 10)
+# This is the maximum number of times the agent will try to solve a task
+max_iterations = 10
+
+# List of commands to block for safety (default: empty list)
+# Examples: ["rm", "sudo", "reboot"]
+# This is a list of commands that the agent will not be allowed to use
+blocked_commands = []
+
+# ============================================================================
 # Terminal-Bench Evaluation Settings
+# ============================================================================
 [evaluation]
-output_path = "./eval_results"         # Optional: default ./eval_results
-n_attempts = 1                          # Optional: default 1
-n_concurrent_trials = 1                 # Optional: default 1
-timeout_multiplier = 1.0                # Optional: default 1.0
-cleanup = false                         # Optional: default false
-task_ids = ["hello-world"]              # REQUIRED (list of task IDs to run)
+# List of task IDs to evaluate
+# Task IDs are directory names from terminal-bench tasks
+# Examples: ["hello-world", "create-bucket", "csv-to-parquet"]
+# You MUST specify at least one task ID - there is no "run all" option
+task_ids = ["hello-world"]
 
+# Output directory for evaluation results (default: ./eval_results)
+output_path = "./eval_results"
+
+# Number of attempts per task (default: 1)
+n_attempts = 1
+
+# Number of concurrent trials (default: 1)
+n_concurrent_trials = 1
+
+# Timeout multiplier for task execution (default: 1.0)
+timeout_multiplier = 1.0
+
+# Cleanup Docker containers after evaluation (default: false)
+cleanup = true
+
+# ============================================================================
 # Dataset Settings
+# ============================================================================
+# Terminal-bench can use either:
+# 1. Automatic dataset management (recommended) - specify name and version
+# 2. Custom dataset path - specify path to local dataset directory
+
+# For automatic dataset management (recommended):
 [dataset]
-path = "../terminal-bench/tasks" # REQUIRED (path to local dataset, can be overridden by DATASET_PATH env var)
+name = "terminal-bench-core"  
+version = "head"
 
+# ============================================================================
 # Logging Configuration
+# ============================================================================
 [logging]
-level = "INFO"                                                   # Optional: default INFO
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s" # Optional: has default
+# Log level (default: INFO)
+# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = "INFO"
 
+# Log format string (default shown below)
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ============================================================================
 # A2A Protocol Settings
+# ============================================================================
 [a2a]
-default_input_modes = ["text"]  # Optional: default ["text"]
-default_output_modes = ["text"] # Optional: default ["text"]
-streaming = true                # Optional: default true
+# Timeout for sending messages to agents in seconds (default: 300.0)
+message_timeout = 300.0
 
-# Command Safety Settings
-[safety]
-blocked_commands = ["rm", "sudo", "shutdown", "reboot", "halt"] # Optional: has defaults
+# Timeout for health check requests in seconds (default: 5.0)
+health_check_timeout = 5.0

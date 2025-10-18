@@ -22,9 +22,11 @@ from a2a.types import (
     TaskStatusUpdateEvent,
 )
 
+from src.config import settings
+
 
 async def send_message_to_agent(
-    message: str, agent_url: str, timeout: float = 300.0
+    message: str, agent_url: str, timeout: float | None = None
 ) -> str:
     """
     Send a message to an A2A-compatible agent and return the response.
@@ -32,7 +34,7 @@ async def send_message_to_agent(
     Args:
         message: The message text to send
         agent_url: The base URL of the agent (e.g., "http://localhost:8001")
-        timeout: Request timeout in seconds (default: 300s for long-running tasks)
+        timeout: Request timeout in seconds (default: from config, 300.0 if not set)
 
     Returns:
         String response from the agent
@@ -40,7 +42,11 @@ async def send_message_to_agent(
     Raises:
         RuntimeError: If agent card cannot be resolved or other errors occur
     """
-    client = None
+    # Use provided timeout or get from settings
+    if timeout is None:
+        timeout = settings.a2a_message_timeout
+
+    httpx_client = None
     try:
         # Create A2A client
         httpx_client = httpx.AsyncClient(timeout=timeout)
@@ -90,23 +96,28 @@ async def send_message_to_agent(
 
     finally:
         # Clean up the httpx client to prevent resource leaks
-        if client and hasattr(client, "httpx_client"):
-            await client.httpx_client.aclose()
+        if httpx_client:
+            await httpx_client.aclose()
 
 
-async def check_agent_health(agent_url: str) -> bool:
+async def check_agent_health(agent_url: str, timeout: float | None = None) -> bool:
     """
     Check if an A2A agent is healthy and responding.
 
     Args:
         agent_url: The base URL of the agent
+        timeout: Timeout in seconds (default: from config, 5.0 if not set)
 
     Returns:
         True if agent is healthy, False otherwise
     """
+    # Use provided timeout or get from settings
+    if timeout is None:
+        timeout = settings.a2a_health_check_timeout
+
     httpx_client = None
     try:
-        httpx_client = httpx.AsyncClient(timeout=5.0)
+        httpx_client = httpx.AsyncClient(timeout=timeout)
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=agent_url)
         agent_card = await resolver.get_agent_card()
         return agent_card is not None
@@ -117,19 +128,24 @@ async def check_agent_health(agent_url: str) -> bool:
             await httpx_client.aclose()
 
 
-async def get_agent_card(agent_url: str) -> dict | None:
+async def get_agent_card(agent_url: str, timeout: float | None = None) -> dict | None:
     """
     Get the agent card from an A2A agent.
 
     Args:
         agent_url: The base URL of the agent
+        timeout: Timeout in seconds (default: from config, 5.0 if not set)
 
     Returns:
         Agent card as a dictionary, or None if failed
     """
+    # Use provided timeout or get from settings
+    if timeout is None:
+        timeout = settings.a2a_health_check_timeout
+
     httpx_client = None
     try:
-        httpx_client = httpx.AsyncClient(timeout=5.0)
+        httpx_client = httpx.AsyncClient(timeout=timeout)
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=agent_url)
 
         agent_card = await resolver.get_agent_card()

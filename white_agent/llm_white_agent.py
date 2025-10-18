@@ -7,6 +7,7 @@ It can execute bash commands and use the LLM to reason about tasks.
 
 import asyncio
 import json
+import logging
 import tomllib
 import uvicorn
 from typing import Any
@@ -134,13 +135,21 @@ class LLMWhiteAgentExecutor(AgentExecutor):
 
         Returns:
             Final response from the agent
+
+        Raises:
+            ValueError: If container name cannot be extracted from task instruction
         """
         # Extract container name from user input
         import re
 
         container_match = re.search(r"The container name is: (.+)", user_input)
-        if container_match:
-            self.container_name = container_match.group(1).strip()
+        if not container_match:
+            raise ValueError(
+                "Container name not found in task instruction. "
+                "Cannot execute commands without container context. "
+                "Expected format: 'The container name is: <container_name>'"
+            )
+        self.container_name = container_match.group(1).strip()
 
         # Initialize conversation
         messages = [
@@ -165,10 +174,9 @@ Remember: You're being evaluated on your ability to correctly complete the task!
             {"role": "user", "content": user_input},
         ]
 
-        max_iterations = 15  # Prevent infinite loops
         iteration = 0
 
-        while iteration < max_iterations:
+        while iteration < settings.agent_max_iterations:
             iteration += 1
 
             # Call the LLM
@@ -303,12 +311,27 @@ def create_llm_white_agent_app(agent_card_path: str) -> A2AStarletteApplication:
 
 def main():
     """Main entry point for the LLM white agent."""
+    # Setup logging
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level),
+        format=settings.log_format,
+    )
+    logger = logging.getLogger(__name__)
+
+    # Validate configuration before starting
+    try:
+        settings.validate_required_settings()
+        logger.info("Configuration validated successfully")
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        logger.error("Please check your config.toml and .env files")
+        raise SystemExit(1)
+
     print(
         f"Starting LLM-Powered White Agent on {settings.white_agent_host}:{settings.white_agent_port}"
     )
     print(f"Using agent card: {settings.white_agent_card_path}")
     print(f"Model: {settings.white_agent_model}")
-    print(f"Execution root: {settings.white_agent_execution_root}")
     print()
 
     app = create_llm_white_agent_app(settings.white_agent_card_path)

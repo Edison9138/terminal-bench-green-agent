@@ -10,12 +10,13 @@ from src.config.settings import settings
 
 # Configuration for terminal-bench evaluation loaded from config.toml
 task_config = {
-    "dataset_path": settings.dataset_path,
     "task_ids": settings.eval_task_ids,
     "white_agent_url": settings.white_agent_url,
     "n_attempts": settings.eval_n_attempts,
     "n_concurrent_trials": settings.eval_n_concurrent_trials,
     "timeout_multiplier": settings.eval_timeout_multiplier,
+    "dataset_name": settings.dataset_name,
+    "dataset_version": settings.dataset_version,
 }
 
 kick_off_message = f"""
@@ -35,7 +36,8 @@ Please run the terminal-bench harness with this configuration and report back th
 
 
 async def main():
-    green_agent_url = "http://localhost:9999"
+    # Use settings for green agent URL
+    green_agent_url = f"http://{settings.green_agent_host}:{settings.green_agent_port}"
 
     print(f"Sending evaluation request to green agent at {green_agent_url}...")
     print(f"White agent being evaluated: {task_config['white_agent_url']}")
