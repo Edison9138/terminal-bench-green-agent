@@ -134,9 +134,6 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 Terminal-Bench Evaluation Results
 =====================================
 
-Agent Under Test: {config.get('white_agent_url')}
-Tasks Evaluated: {len(results.results)}
-
 Overall Performance:
 - Accuracy: {results.accuracy:.2%}
 - Resolved: {results.n_resolved}/{len(results.results)}
@@ -191,7 +188,7 @@ Overall Performance:
         await updater.update_status(
             TaskState.working,
             new_agent_text_message(
-                "Received evaluation request. Parsing configuration...",
+                "Received evaluation request. Parsing configuration...\n",
                 task.context_id,
                 task.id,
             ),
@@ -210,7 +207,7 @@ Overall Performance:
             await updater.update_status(
                 TaskState.working,
                 new_agent_text_message(
-                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...",
+                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...\n",
                     task.context_id,
                     task.id,
                 ),
