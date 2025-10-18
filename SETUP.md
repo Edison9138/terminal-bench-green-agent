@@ -1,518 +1,315 @@
-# Setup Guide for Terminal-Bench Green Agent
+# Setup Guide
 
-This guide will help you set up and run the terminal-bench green agent evaluation system.
-
-## Overview
-
-The system has three components:
-
-1. **Green Agent** (Evaluator) - Runs terminal-bench harness and evaluates white agents
-2. **White Agent** (Subject) - The agent being evaluated
-3. **Kickoff Script** - Sends evaluation requests to the green agent
+Complete guide for setting up, configuring, and building agents for terminal-bench evaluation.
 
 ## Prerequisites
 
 - Python 3.10+
-- Docker (required by terminal-bench for task environments)
-- Terminal-bench installed (via pip install terminal-bench)
-- Terminal-bench dataset downloaded (via terminal-bench datasets download)
+- Docker (required for terminal-bench task environments)
+- OpenAI API key (for LLM-powered white agent)
 
 ## Installation
 
-### Step 1: Install Dependencies
-
 ```bash
-cd terminal-bench-green-agent
-
-# Create virtual environment (recommended)
+# Setup environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Download terminal-bench dataset (one-time setup)
+# Download terminal-bench dataset
 terminal-bench datasets download --dataset terminal-bench-core
-```
 
-### Step 2: Configure Environment
-
-```bash
-# Copy environment template
+# Configure API key
 cp .env.example .env
-
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY="sk-your-actual-key-here"
+# Edit .env and add: OPENAI_API_KEY="sk-your-key"
 ```
 
-Optionally customize `config.toml` for ports, paths, and other settings.
-
-### Step 3: Verify Terminal-Bench Installation
-
+Verify installation:
 ```bash
-# Test that terminal-bench is available
 terminal-bench --help
-
-# Verify dataset is downloaded
-terminal-bench datasets list
-```
-
-## Quick Start
-
-### Option A: Test with LLM-Powered White Agent
-
-This uses the included LLM-powered white agent (GPT-4o-mini) for realistic testing.
-
-```bash
-# Terminal 1: Start the LLM white agent
-./scripts/start_white_agent.sh
-# Or directly:
-python -m white_agent
-
-# Terminal 2: Start the green agent
-./scripts/start_green_agent.sh
-# Or directly:
-python -m src.green_agent
-
-# Terminal 3: Run the kickoff script
-./scripts/run_eval.sh
-# Or directly:
-python -m src.kickoff
-```
-
-**Note:** Requires `OPENAI_API_KEY` in `.env` file.
-
-### Option B: Test with Your Own White Agent
-
-If you have your own A2A-compatible agent:
-
-```bash
-# Terminal 1: Start your white agent
-python your_white_agent.py --port 8001
-
-# Terminal 2: Start the green agent
-./scripts/start_green_agent.sh
-
-# Terminal 3: Configure evaluation in config.toml
-# Edit config.toml:
-#   - Set task_ids to the tasks you want to run
-#   - Set white_agent URL/port if needed
-#   - Adjust other parameters as needed
-
-./scripts/run_eval.sh
+docker ps  # Check Docker is running
 ```
 
 ## Configuration
 
-### Task Configuration
+### Configuration Files
 
-Edit `config.toml` to configure the evaluation:
+- **`config.toml`** - All settings (ports, paths, eval params). Safe to commit.
+- **`.env`** - API keys and secrets. Already gitignored, never commit.
+- **`.env.example`** - Template for `.env`
+
+### Configuration Hierarchy
+
+1. Environment variables (highest priority)
+2. `config.toml` settings
+
+**ALL fields in config.toml are REQUIRED.** The app will fail with helpful error messages if any are missing.
+
+### Complete config.toml Example
 
 ```toml
-# Green Agent Settings - ALL REQUIRED
 [green_agent]
 host = "0.0.0.0"
 port = 9999
 card_path = "src/green_agent/card.toml"
 
-# White Agent Settings - ALL REQUIRED
 [white_agent]
 host = "0.0.0.0"
 port = 8001
 card_path = "white_agent/white_agent_card.toml"
-model = "gpt-4o-mini"  # LLM model to use
-
-# Terminal-Bench Evaluation Settings
-[evaluation]
-# REQUIRED: Task IDs are actual directory names from terminal-bench/tasks/
-task_ids = [
-    "hello-world",     # Simple file creation
-    "create-bucket",   # AWS S3 bucket creation
-    "csv-to-parquet",  # Data format conversion
-]
-n_attempts = 1                  # Optional: default 1
-n_concurrent_trials = 1         # Optional: default 1
-timeout_multiplier = 1.0        # Optional: default 1.0
-output_path = "./eval_results"  # Optional: default ./eval_results
-
-# Dataset Settings (for automatic dataset management)
-[dataset]
-name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
-version = "head"              # Optional: default "head"
-# For custom datasets:
-# path = "/path/to/custom/dataset"
-```
-
-**Important Notes:**
-
-- **All configuration values are REQUIRED** unless marked "Optional" with a default
-- **Task IDs**: Use actual directory names from terminal-bench tasks, not numbers
-- **You MUST specify task_ids** - there is no "run all tasks" option
-- **Dataset**: Terminal-bench manages datasets automatically via name/version
-- You can override any setting with environment variables (see CONFIG.md)
-
-### Environment Configuration
-
-See [CONFIG.md](CONFIG.md) for full details. Key settings:
-
-**`.env` file** (copy from `.env.example`):
-
-```bash
-OPENAI_API_KEY="sk-your-key-here"  # Required for LLM agent
-WHITE_AGENT_URL="http://localhost:8001"  # Optional override
-LOG_LEVEL="INFO"  # DEBUG, INFO, WARNING, ERROR
-```
-
-**`config.toml` file**:
-
-```toml
-[green_agent]
-host = "0.0.0.0"  # REQUIRED
-port = 9999  # REQUIRED
-card_path = "src/green_agent/card.toml"  # REQUIRED
-
-[white_agent]
-host = "0.0.0.0"  # REQUIRED
-port = 8001  # REQUIRED
-card_path = "white_agent/white_agent_card.toml"  # REQUIRED
-model = "gpt-4o-mini"  # REQUIRED
+model = "gpt-4o-mini"
+max_iterations = 10
+blocked_commands = []  # e.g., ["rm", "sudo"]
 
 [evaluation]
-task_ids = ["hello-world"]  # REQUIRED - must specify at least one
-n_attempts = 1  # Optional: default 1
-timeout_multiplier = 1.0  # Optional: default 1.0
-output_path = "./eval_results"  # Optional: default ./eval_results
+task_ids = ["hello-world", "create-bucket"]  # Directory names from terminal-bench/tasks/
+n_attempts = 1
+n_concurrent_trials = 1
+timeout_multiplier = 1.0
+output_path = "./eval_results"
+cleanup = true
 
 [dataset]
-name = "terminal-bench-core"  # Optional: default "terminal-bench-core"
-version = "head"  # Optional: default "head"
-# For custom datasets: path = "/path/to/custom/dataset"
+name = "terminal-bench-core"
+version = "head"
+
+[logging]
+level = "INFO"  # DEBUG, INFO, WARNING, ERROR
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+[a2a]
+message_timeout = 300.0
+health_check_timeout = 5.0
 ```
 
-### Agent Configuration
+### Environment Variables
 
-#### Agent Card Format (CRITICAL!)
-
-Both green and white agent cards MUST follow this format:
-
-```toml
-name = "YourAgentName"
-description = """
-Your agent description here...
-"""
-url = "http://localhost:PORT/"  # Required!
-version = "1.0.0"
-
-defaultInputModes = ["text"]    # Required!
-defaultOutputModes = ["text"]   # Required!
-
-[capabilities]
-streaming = true  # MUST be true for A2A streaming to work!
-
-[[skills]]  # Double brackets! Not [skills]
-id = "skill_id"
-name = "Skill Name"
-description = "What this skill does"
-tags = ["tag1", "tag2"]
-```
-
-**Common Mistakes:**
-
-- ❌ `[description]` section with `short` and `long` → ✅ Use top-level `description = "..."`
-- ❌ `[skills]` → ✅ Use `[[skills]]` (double brackets, array of tables)
-- ❌ `streaming = false` → ✅ Use `streaming = true`
-- ❌ Missing `url`, `defaultInputModes`, `defaultOutputModes` → ✅ Add them!
-
-#### Green Agent (`src/green_agent/card.toml`)
-
-- Evaluator agent configuration
-- Runs on port 9999 (configurable in config.toml)
-- Has evaluation and reporting skills
-
-#### White Agent (`white_agent/white_agent_card.toml` or your own)
-
-- Agent being evaluated configuration
-- Runs on port 8001 (configurable in config.toml)
-- Should have task-solving skills
-
-## Architecture Details
-
-### How It Works
-
-```
-┌──────────────────┐
-│ Kickoff Script   │
-│                  │ 1. Sends task config
-└────────┬─────────┘
-         │ HTTP POST (A2A message)
-         │ to http://localhost:9999
-         ▼
-┌──────────────────┐
-│  Green Agent     │
-│  (Evaluator)     │ 2. Receives config
-│                  │ 3. Initializes terminal-bench harness
-│                  │ 4. Loads tasks from dataset
-└────────┬─────────┘
-         │ For each task:
-         │   a. Create Docker environment
-         │   b. Send task to white agent
-         │   c. Collect response
-         │   d. Run tests
-         │   e. Score results
-         │
-         │ HTTP POST (A2A message)
-         │ to http://localhost:8001
-         ▼
-┌──────────────────┐
-│  White Agent     │
-│  (Subject)       │ 5. Receives task instruction
-│                  │ 6. Solves task (executes commands)
-│                  │ 7. Returns solution
-└──────────────────┘
-```
-
-### Components
-
-#### 1. Green Agent (`green_agent.py`)
-
-The green agent is a special evaluator agent that:
-
-- Exposes an A2A interface (can receive messages from kickoff script)
-- Internally runs the terminal-bench harness
-- Uses `A2AWhiteAgent` adapter to communicate with the white agent
-- Collects and reports results
-
-**Key Classes:**
-
-- `TerminalBenchGreenAgentExecutor`: Main executor that runs evaluations
-- Methods:
-  - `parse_task_config()`: Extracts config from incoming message
-  - `run_terminal_bench_evaluation()`: Runs the harness
-  - `format_results_message()`: Formats results for output
-
-#### 2. A2A White Agent Adapter (`a2a_white_agent.py`)
-
-This is the bridge between terminal-bench and A2A agents:
-
-- Implements terminal-bench's `BaseAgent` interface
-- Communicates with white agent via A2A protocol
-- Translates terminal-bench task instructions to A2A messages
-- Handles responses and reports results back to harness
-
-**Key Class:**
-
-- `A2AWhiteAgent`: Adapter class
-- Methods:
-  - `perform_task()`: Main entry point called by terminal-bench
-  - `_send_to_agent_async()`: Sends A2A message to white agent
-  - `_format_task_instruction()`: Formats task for white agent
-
-#### 3. A2A Client (`utils/a2a_client.py`)
-
-Helper utilities for A2A communication:
-
-- `send_message_to_agent()`: Send message to A2A agent
-- `check_agent_health()`: Check if agent is responding
-- `get_agent_card()`: Retrieve agent card
-
-#### 4. Kickoff Script (`kickoff_terminal_bench.py`)
-
-Initiates the evaluation:
-
-- Defines task configuration
-- Sends evaluation request to green agent
-- Displays results
-
-## Building Your White Agent
-
-To create a white agent that can be evaluated:
-
-### 1. Implement A2A Interface
-
-Your white agent must expose an A2A interface. You can use:
-
-- **OpenAI Agents SDK** (as shown in your screenshot)
-- **AgentBeats SDK**
-- **Custom A2A implementation**
-
-Example structure:
-
-```python
-from a2a.server.apps import A2AStarletteApplication
-from a2a.server.agent_execution import AgentExecutor
-
-class YourAgentExecutor(AgentExecutor):
-    async def execute(self, context, event_queue):
-        # 1. Get task instruction
-        task_instruction = context.get_user_input()
-
-        # 2. Use your LLM/framework to solve it
-        solution = await your_agent_solve(task_instruction)
-
-        # 3. Return result
-        await updater.add_artifact([Part(root=TextPart(text=solution))], name="response")
-        await updater.complete()
-
-# Create A2A app and run
-app = A2AStarletteApplication(...)
-uvicorn.run(app, host="0.0.0.0", port=8001)
-```
-
-### 2. Add Terminal Execution Capability
-
-Your agent needs to execute terminal commands. Options:
-
-**Option A: Use MCP (Model Context Protocol)**
-
-- Connect to an MCP server that provides terminal tools
-- Agent calls tools via function calling
-
-**Option B: Custom Tools**
-
-- Implement terminal execution tools directly
-- Register with your agent framework
-
-**Option C: Hybrid**
-
-- Mix of MCP and custom tools
-
-Example with OpenAI Agents SDK (from your screenshot):
-
-```python
-from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
-
-# Define terminal tool
-def execute_terminal_command(command: str) -> dict:
-    """Execute a terminal command and return output."""
-    # Your implementation here
-    return {"terminal_output": output, "asciinema_url": url}
-
-# Create agent with tool
-root_agent = Agent(
-    name="terminal_agent",
-    model=LiteLlm(model="openai/gpt-4o"),
-    instructions="You are a helpful assistant that can execute terminal commands.",
-    tools=[execute_terminal_command],
-)
-
-# Make it A2A compatible
-from google.adk.a2a.utils.agent_to_a2a import to_a2a
-a2a_app = to_a2a(root_agent, port=8001)
-```
-
-### 3. Handle Task Instructions
-
-Terminal-bench sends task instructions like:
-
-```
-You are being evaluated on the Terminal-Bench benchmark.
-
-TASK:
-Create a file called hello.txt with the content "Hello, World!"
-
-You have access to a terminal session where you can execute commands...
-```
-
-Your agent should:
-
-1. Parse the task
-2. Determine required commands
-3. Execute them
-4. Verify success
-5. Return completion status
-
-## Troubleshooting
-
-### Critical: Wrong A2A Package (Most Common Error!)
-
-**Problem:** `ModuleNotFoundError: No module named 'a2a.server'`
-
-This means you have the WRONG `a2a` package installed! There are two packages:
-
-- ❌ `a2a` (0.44) - A web scraping library (WRONG!)
-- ✅ `a2a-sdk` (0.3.x) - Agent-to-Agent protocol (CORRECT!)
-
-**Solution:**
-
+Override any setting:
 ```bash
-# Check what you have
-pip list | grep a2a
-
-# If you see "a2a 0.44", uninstall and install correct one:
-pip uninstall -y a2a
-pip install a2a-sdk openai-agents
-
-# Verify
-python -c "from a2a.server.apps import A2AStarletteApplication; print('✓ OK')"
+export WHITE_AGENT_MODEL="gpt-4o"
+export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"  # Comma-separated
+export GREEN_AGENT_PORT=9998
 ```
 
-### Agent Card Validation Errors
+### Agent Card Format
 
-**Problem:** `ValidationError` when loading agent card
-
-**Solution:** Check your `*.toml` files have the correct format:
+Both agent cards must follow this format:
 
 ```toml
 name = "AgentName"
-description = "Description here"  # NOT [description] section!
+description = "What the agent does"
 url = "http://localhost:PORT/"
 version = "1.0.0"
 defaultInputModes = ["text"]
 defaultOutputModes = ["text"]
 
 [capabilities]
-streaming = true  # MUST be true!
+streaming = true  # REQUIRED
 
 [[skills]]  # Double brackets!
-id = "skill1"
-...
+id = "skill_id"
+name = "Skill Name"
+description = "What this skill does"
+```
+
+**Common mistakes:** `[description]` section (wrong), `[skills]` (wrong), `streaming = false` (wrong).
+
+## Building Your White Agent
+
+Your agent must expose an A2A interface and execute terminal commands.
+
+### 1. Implement A2A Interface
+
+```python
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.agent_execution import AgentExecutor
+from a2a.types import Part, TextPart, TaskState
+from a2a.server.tasks import TaskUpdater
+import uvicorn
+
+class YourAgentExecutor(AgentExecutor):
+    async def execute(self, context, event_queue):
+        task = context.current_task
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+
+        # Get task instruction
+        user_input = context.get_user_input()
+
+        # Solve task (use your LLM + tools here)
+        solution = await your_solve_function(user_input)
+
+        # Return result
+        await updater.add_artifact([Part(root=TextPart(text=solution))], name="response")
+        await updater.complete()
+
+# Create and run
+app = A2AStarletteApplication(
+    agent_card=AgentCard(**agent_card_data),
+    http_handler=DefaultRequestHandler(
+        agent_executor=YourAgentExecutor(),
+        task_store=InMemoryTaskStore()
+    )
+).build()
+
+uvicorn.run(app, host="0.0.0.0", port=8001)
+```
+
+### 2. Add Terminal Execution
+
+Options:
+- **MCP Server** - Connect to MCP server with terminal tools
+- **Direct Implementation** - Execute commands via subprocess/docker exec
+- **Hybrid** - Mix of both
+
+Example with function calling:
+```python
+def execute_bash_command(command: str, container_name: str) -> dict:
+    """Execute command in Docker container."""
+    result = subprocess.run(
+        ["docker", "exec", "-w", "/app", container_name, "bash", "-c", command],
+        capture_output=True, text=True
+    )
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr
+    }
+```
+
+### 3. Handle Task Instructions
+
+Terminal-bench sends instructions like:
+```
+You are being evaluated on Terminal-Bench.
+
+TASK:
+Create a file called hello.txt with "Hello, World!"
+
+The container name is: terminal_bench_abc123
+```
+
+Your agent should:
+1. Extract container name from instruction
+2. Parse the task
+3. Generate and execute commands
+4. Verify success
+5. Return completion status
+
+## Configuration Reference
+
+### All Settings
+
+#### Green Agent
+- `green_agent.host` - Host to bind (default: "0.0.0.0")
+- `green_agent.port` - Server port (default: 9999)
+- `green_agent.card_path` - Path to agent card
+
+#### White Agent
+- `white_agent.host` - Host to bind
+- `white_agent.port` - Server port (default: 8001)
+- `white_agent.card_path` - Path to agent card
+- `white_agent.model` - LLM model (can override with `WHITE_AGENT_MODEL` env var)
+- `white_agent.max_iterations` - Max iterations per task
+- `white_agent.blocked_commands` - Commands to block for safety
+
+#### Evaluation
+- `evaluation.task_ids` - **REQUIRED** List of task directory names
+- `evaluation.n_attempts` - Attempts per task
+- `evaluation.n_concurrent_trials` - Concurrent trials
+- `evaluation.timeout_multiplier` - Timeout multiplier
+- `evaluation.output_path` - Results directory
+- `evaluation.cleanup` - Cleanup Docker after eval
+
+#### Dataset
+- `dataset.name` - Dataset name (terminal-bench manages automatically)
+- `dataset.version` - Dataset version
+
+#### Logging
+- `logging.level` - Log level
+- `logging.format` - Log format string
+
+#### A2A
+- `a2a.message_timeout` - Message timeout (seconds)
+- `a2a.health_check_timeout` - Health check timeout (seconds)
+
+### Security
+
+1. Never commit `.env` (already gitignored)
+2. Rotate API keys regularly
+3. Use `blocked_commands` to prevent dangerous operations
+
+## Troubleshooting
+
+### Configuration Issues
+
+**Settings not loading?**
+- Check `config.toml` is in project root
+- Verify `.env` exists
+- Check for syntax errors
+
+**Environment variable not working?**
+- Use UPPERCASE with underscores: `GREEN_AGENT_PORT` not `green_agent.port`
+- Nested keys: `EVALUATION_N_ATTEMPTS` for `evaluation.n_attempts`
+- Lists: Comma-separated `EVALUATION_TASK_IDS="task1,task2"`
+
+**API key not found?**
+- Ensure `.env` exists (copy from `.env.example`)
+- Check exact key name (case-sensitive)
+- Remove extra quotes/spaces
+
+### Wrong A2A Package (Most Common!)
+
+```bash
+# If you see: ModuleNotFoundError: No module named 'a2a.server'
+pip uninstall -y a2a
+pip install a2a-sdk openai-agents
+
+# Verify
+python -c "from a2a.server.apps import A2AStarletteApplication; print('OK')"
+```
+
+**Note:** `a2a` (0.44) is a web scraper. You need `a2a-sdk` (0.3.x) for Agent-to-Agent protocol!
+
+### Agent Card Validation
+
+Check your `*.toml` files have:
+```toml
+description = "..."  # NOT [description] section
+url = "http://localhost:PORT/"
+streaming = true  # NOT false
+[[skills]]  # Double brackets NOT [skills]
 ```
 
 ### Green Agent Issues
 
-**Problem:** Green agent can't import terminal_bench
-
+**Can't import terminal_bench**
 ```bash
-# Solution: Make sure terminal-bench is installed
 pip install terminal-bench
-
-# Also make sure the dataset is downloaded
 terminal-bench datasets download --dataset terminal-bench-core
 ```
 
-**Problem:** Docker errors when running tasks
-
+**Docker errors**
 ```bash
-# Solution: Make sure Docker is running
-docker ps
-
-# Check terminal-bench Docker images
+docker ps  # Ensure Docker is running
 docker images | grep terminal-bench
 ```
 
 ### White Agent Issues
 
-**Problem:** Green agent can't connect to white agent
-
+**Can't connect to white agent**
 ```bash
-# Solution: Check white agent is running and accessible
-curl http://localhost:8001/agent/card
-
-# Check firewall/port settings
+curl http://localhost:8001/agent/card  # Should return agent card
 ```
 
-**Problem:** White agent receives tasks but fails
-
+**Agent receives tasks but fails**
 - Check agent logs for errors
-- Verify agent has necessary tools/capabilities
-- Test agent manually first with simple A2A messages
+- Verify agent has terminal execution tools
+- Test manually with simple A2A messages
 
 ### Communication Issues
 
-**Problem:** A2A message format errors
-
-- Check that both agents are using compatible A2A versions
+- Check both agents use compatible A2A versions
 - Verify message structure matches A2A spec
 - Check logs for detailed error messages
 
@@ -520,74 +317,41 @@ curl http://localhost:8001/agent/card
 
 ### Custom Datasets
 
-To evaluate on custom terminal-bench datasets, edit `config.toml`:
+For custom terminal-bench datasets, modify the harness initialization in `src/green_agent/agent.py`. Standard datasets are managed automatically via `dataset.name` and `dataset.version`.
 
-```toml
-[dataset]
-path = "/path/to/custom/dataset"  # REQUIRED - Custom dataset location
-
-[evaluation]
-task_ids = ["task1", "task2"]  # Custom task IDs
-```
-
-Or use environment variables:
+### Multiple Evaluations
 
 ```bash
-export DATASET_PATH="/path/to/custom/dataset"
-export EVALUATION_TASK_IDS="task1,task2"
-```
-
-**Note:** For standard terminal-bench tasks, you don't need to specify a dataset path - terminal-bench manages this automatically.
-
-### Multiple Evaluation Runs
-
-To run multiple evaluations with different configurations:
-
-```bash
-# Run 1: First set of tasks
+# Run 1
 export EVALUATION_TASK_IDS="hello-world,csv-to-parquet"
 python -m src.kickoff
 
-# Run 2: Different set of tasks
+# Run 2
 export EVALUATION_TASK_IDS="create-bucket,other-task"
 python -m src.kickoff
 ```
 
-Or modify `config.toml` between runs and re-run the kickoff script.
+Or modify `config.toml` between runs.
 
 ### Integration with AgentBeats
 
-To integrate with the AgentBeats platform:
-
 1. Wrap green agent with `AgentBeatsExecutor`
-2. Add battle logging
-3. Register as a scenario in AgentBeats
-
-See `agentbeats/scenarios/` for examples.
+2. Add battle logging/tracking
+3. Register as scenario in AgentBeats format
 
 ## Results
 
-Results are saved to `./eval_results/green_agent_eval_TIMESTAMP/`:
-
+Results saved to `./eval_results/green_agent_eval_TIMESTAMP/`:
 - `results.json` - Overall results
-- `run_metadata.json` - Run configuration and metadata
+- `run_metadata.json` - Run configuration
 - `task_id/` - Per-task results
   - `results.json` - Task results
-  - `sessions/` - Terminal session recordings
-  - `agent_interaction.log` - Agent communication logs
+  - `sessions/` - Terminal recordings
+  - `agent_interaction.log` - Communication logs
 
 ## Next Steps
 
-1. **Implement a Real White Agent**: Replace the example with your actual agent
-2. **Add Tools**: Implement terminal execution tools
-3. **Test on Full Dataset**: Run on complete terminal-bench
-4. **Integrate with AgentBeats**: Connect to the evaluation platform
-5. **Add Metrics**: Track custom metrics and logging
-
-## Support
-
-For questions or issues:
-
-- Check terminal-bench documentation
-- Review A2A protocol specifications
-- See example implementations in `agentbeats/scenarios/`
+1. **Implement Real Agent** - Replace example with your agent
+2. **Add Tools** - Implement terminal execution
+3. **Test Full Dataset** - Run on complete terminal-bench
+4. **Add Metrics** - Track custom metrics and logging
