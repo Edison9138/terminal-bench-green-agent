@@ -52,6 +52,9 @@ Start three terminals:
 ./scripts/run_eval.sh
 ```
 
+### 
+this is dummy info
+
 ### 3. Verify Setup
 
 - [ ] Both agents start without errors
