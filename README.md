@@ -26,6 +26,9 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
+# Install terminal-bench
+pip install terminal-bench
+
 # Download dataset
 terminal-bench datasets download --dataset terminal-bench-core
 
