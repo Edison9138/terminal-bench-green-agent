@@ -1,106 +1,63 @@
-# Terminal-Bench Green Agent Configuration
+# Configuration File
 # Put OPENAI_API_KEY in .env file
 
 [project]
 name = "terminal-bench-green-agent"
 version = "1.0.0"
 
-# ============================================================================
 # Green Agent Settings (Evaluator)
-# ============================================================================
 [green_agent]
-# Host to bind the green agent server to
-# Use "0.0.0.0" to accept connections from any network interface
-# Use "127.0.0.1" for localhost-only access
 host = "0.0.0.0"
-
-# Port for the green agent server
 port = 9999
-
-# Path to the green agent's A2A card file
 card_path = "src/green_agent/card.toml"
 
-# ============================================================================
+# MCP Server Settings (Task-Scoped Traced Environment)
+[mcp]
+base_port = 10000
+
 # White Agent Settings (Agent Under Test)
-# ============================================================================
 [white_agent]
-# Host where the white agent is running
-# Typically "0.0.0.0" if running the included white agent
 host = "0.0.0.0"
-
-# Port where the white agent is running
 port = 8001
-
-# Path to the white agent's A2A card file
-card_path = "white_agent/white_agent_card.toml"
-
-# OpenAI LLM model to use for the white agent
-# Examples: "gpt-4o-mini", "gpt-4o"
 model = "gpt-4o-mini"
+max_iterations = 30
 
-# Maximum number of iterations the agent can perform (default: 10)
-# This is the maximum number of times the agent will try to solve a task
-max_iterations = 10
-
-# List of commands to block for safety (default: empty list)
-# Examples: ["rm", "sudo", "reboot"]
-# This is a list of commands that the agent will not be allowed to use
-blocked_commands = []
-
-# ============================================================================
 # Terminal-Bench Evaluation Settings
-# ============================================================================
 [evaluation]
-# List of task IDs to evaluate
-# Task IDs are directory names from terminal-bench tasks
-# Examples: ["hello-world", "create-bucket", "csv-to-parquet"]
-# You MUST specify at least one task ID - there is no "run all" option
-task_ids = ["hello-world"]
 
-# Output directory for evaluation results (default: ./eval_results)
+# list all easy tasks for now
+task_ids = [
+    "count-dataset-tokens",
+    "create-bucket",
+    "csv-to-parquet",
+    "extract-safely",
+    "fix-permissions",
+    "git-workflow-hack",
+    "grid-pattern-transform",
+    "hello-world",
+    "modernize-fortran-build",
+    "processing-pipeline",
+    "security-vulhub-minio",
+    "simple-web-scraper",
+]
+
 output_path = "./eval_results"
-
-# Number of attempts per task (default: 1)
 n_attempts = 1
-
-# Number of concurrent trials (default: 1)
-n_concurrent_trials = 1
-
-# Timeout multiplier for task execution (default: 1.0)
+n_concurrent_trials = 2
 timeout_multiplier = 1.0
-
-# Cleanup Docker containers after evaluation (default: false)
 cleanup = true
 
-# ============================================================================
 # Dataset Settings
-# ============================================================================
-# Terminal-bench can use either:
-# 1. Automatic dataset management (recommended) - specify name and version
-# 2. Custom dataset path - specify path to local dataset directory
-
-# For automatic dataset management (recommended):
 [dataset]
-name = "terminal-bench-core"  
-version = "head"
+name = "terminal-bench-core"
+version = "0.1.1"
 
-# ============================================================================
 # Logging Configuration
-# ============================================================================
 [logging]
-# Log level (default: INFO)
-# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 level = "INFO"
-
-# Log format string (default shown below)
 format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-# ============================================================================
 # A2A Protocol Settings
-# ============================================================================
 [a2a]
-# Timeout for sending messages to agents in seconds (default: 300.0)
-message_timeout = 300.0
-
-# Timeout for health check requests in seconds (default: 5.0)
+message_timeout = 7200.0
 health_check_timeout = 5.0
