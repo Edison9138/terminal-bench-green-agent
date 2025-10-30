@@ -1,322 +1,196 @@
 # Setup Guide
 
-Complete guide for setting up, configuring, and building agents for terminal-bench evaluation.
+Guide for installing, configuring, and building white agents for terminal-bench evaluation.
+
+## Table of Contents
+
+- [Quick Setup](#quick-setup)
+- [Manual Installation](#manual-installation)
+- [Configuration](#configuration)
+- [Running Evaluations](#running-evaluations)
+- [Building Your White Agent](#building-your-white-agent)
 
 ## Prerequisites
 
-- Python 3.10+
-- Docker (required for terminal-bench task environments)
-- OpenAI API key (for LLM-powered white agent)
+- **Python 3.10+** - `python --version`
+- **Docker** - `docker ps` should work without errors
+- **OpenAI API Key** - For example white agent (optional)
 
-## Installation
+## Quick Setup
+
+The fastest way to get started:
 
 ```bash
-# Setup environment
+# 1. Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+source venv/bin/activate  # macOS/Linux
+# OR: venv\Scripts\activate  # Windows
 
-# Download terminal-bench dataset
-terminal-bench datasets download --dataset terminal-bench-core
+# 2. Run setup script, which install dependencies and download terminal-bench dataset
+bash scripts/setup.sh
 
-# Configure API key
-cp .env.example .env
-# Edit .env and add: OPENAI_API_KEY="sk-your-key"
-```
-
-Verify installation:
-```bash
-terminal-bench --help
-docker ps  # Check Docker is running
+# 3. Configure API key
+echo "OPENAI_API_KEY=your_key_here" > .env
 ```
 
 ## Configuration
 
-### Configuration Files
-
-- **`config.toml`** - All settings (ports, paths, eval params). Safe to commit.
-- **`.env`** - API keys and secrets. Already gitignored, never commit.
-- **`.env.example`** - Template for `.env`
-
-**ALL fields in config.toml are REQUIRED.** The app will fail with helpful error messages if any are missing.
-
-### Complete config.toml Example
+Edit `config.toml` to configure evaluation. Key settings:
 
 ```toml
-[green_agent]
-host = "0.0.0.0"
-port = 9999
-card_path = "src/green_agent/card.toml"
-
 [white_agent]
-host = "0.0.0.0"
-port = 8001
-card_path = "white_agent/white_agent_card.toml"
-model = "gpt-4o-mini"
-max_iterations = 10
-blocked_commands = []  # e.g., ["rm", "sudo"]
+model = "gpt-4o-mini"      # LLM model
+max_iterations = 30         # Max commands per task
 
 [evaluation]
-task_ids = ["hello-world", "create-bucket"]  # Directory names from terminal-bench/tasks/
-n_attempts = 1
-n_concurrent_trials = 1
-timeout_multiplier = 1.0
-output_path = "./eval_results"
-cleanup = true
+task_ids = ["hello-world", "create-bucket"]  # Tasks to run
+n_attempts = 1              # Attempts per task
+n_concurrent_trials = 2     # Parallel trials
+timeout_multiplier = 1.0    # Adjust timeouts
 
 [dataset]
 name = "terminal-bench-core"
-version = "head"
-
-[logging]
-level = "INFO"  # DEBUG, INFO, WARNING, ERROR
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-[a2a]
-message_timeout = 300.0
-health_check_timeout = 5.0
+version = "0.1.1"
 ```
 
-### Agent Card Format
+**Available tasks:** Check `~/.cache/terminal-bench/terminal-bench-core/tasks/` for all task IDs.
 
-Both agent cards must follow this format:
+See `config.toml` for all configuration options (ports, logging, A2A settings, etc).
 
-```toml
-name = "AgentName"
-description = "What the agent does"
-url = "http://localhost:PORT/"
-version = "1.0.0"
-defaultInputModes = ["text"]
-defaultOutputModes = ["text"]
-
-[capabilities]
-streaming = true
-
-[[skills]]  # Double brackets!
-id = "skill_id"
-name = "Skill Name"
-description = "What this skill does"
-```
 
 ## Building Your White Agent
 
-Your agent must expose an A2A interface and execute terminal commands.
+Your white agent needs three components:
 
-### 1. Implement A2A Interface
+1. **A2A Server** - Receives evaluation requests
+2. **MCP Client** - Connects to task-scoped MCP servers
+3. **Solver Logic** - Executes bash commands to solve tasks
 
-```python
-from a2a.server.apps import A2AStarletteApplication
-from a2a.server.agent_execution import AgentExecutor
-from a2a.types import Part, TextPart, TaskState
-from a2a.server.tasks import TaskUpdater
-import uvicorn
+### Task Instruction Format
 
-class YourAgentExecutor(AgentExecutor):
-    async def execute(self, context, event_queue):
-        task = context.current_task
-        updater = TaskUpdater(event_queue, task.id, task.context_id)
+Each task includes an MCP server URL. Below is an example instruction for the "hello-world" task.
 
-        # Get task instruction
-        user_input = context.get_user_input()
-
-        # Solve task (use your LLM + tools here)
-        solution = await your_solve_function(user_input)
-
-        # Return result
-        await updater.add_artifact([Part(root=TextPart(text=solution))], name="response")
-        await updater.complete()
-
-# Create and run
-app = A2AStarletteApplication(
-    agent_card=AgentCard(**agent_card_data),
-    http_handler=DefaultRequestHandler(
-        agent_executor=YourAgentExecutor(),
-        task_store=InMemoryTaskStore()
-    )
-).build()
-
-uvicorn.run(app, host="0.0.0.0", port=8001)
-```
-
-### 2. Add Terminal Execution
-
-Options:
-- **MCP Server** - Connect to MCP server with terminal tools
-- **Direct Implementation** - Execute commands via subprocess/docker exec
-- **Hybrid** - Mix of both
-
-Example with function calling:
-```python
-def execute_bash_command(command: str, container_name: str) -> dict:
-    """Execute command in Docker container."""
-    result = subprocess.run(
-        ["docker", "exec", "-w", "/app", container_name, "bash", "-c", command],
-        capture_output=True, text=True
-    )
-    return {
-        "command": command,
-        "returncode": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr
-    }
-```
-
-### 3. Handle Task Instructions
-
-Terminal-bench sends instructions like:
 ```
 You are being evaluated on Terminal-Bench.
 
-TASK:
-Create a file called hello.txt with "Hello, World!"
+TASK: Create a file called hello.txt with "Hello, World!"
 
-The container name is: terminal_bench_abc123
+MCP Server URL: http://localhost:10000
+
+ENVIRONMENT:
+- Tool: execute_bash_command (parameter: command)
+- Working directory: /app (Docker container)
+- Each command runs in fresh shell (no state between commands)
 ```
 
-Your agent should:
-1. Extract container name from instruction
-2. Parse the task
-3. Generate and execute commands
-4. Verify success
-5. Return completion status
+### A2A Server
 
-## Configuration Reference
+```python
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.tasks import TaskUpdater
+from a2a.types import Part, TextPart
+import uvicorn
 
-### All Settings
+class WhiteAgentExecutor(AgentExecutor):
+    async def execute(self, context: RequestContext, event_queue: EventQueue):
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        instruction = context.get_user_input()
 
-#### Green Agent
-- `green_agent.host` - Host to bind (default: "0.0.0.0")
-- `green_agent.port` - Server port (default: 9999)
-- `green_agent.card_path` - Path to agent card
+        # Extract MCP URL and solve task
+        mcp_url = extract_mcp_url(instruction)
+        result = await solve_task(instruction, mcp_url)
 
-#### White Agent
-- `white_agent.host` - Host to bind
-- `white_agent.port` - Server port (default: 8001)
-- `white_agent.card_path` - Path to agent card
-- `white_agent.model` - LLM model 
-- `white_agent.max_iterations` - Max iterations per task
-- `white_agent.blocked_commands` - Commands to block for safety
+        # Return result
+        await updater.add_artifact([Part(root=TextPart(text=result))], name="response")
+        await updater.complete()
+```
 
-#### Evaluation
-- `evaluation.task_ids` - **REQUIRED** List of task directory names
-- `evaluation.n_attempts` - Attempts per task
-- `evaluation.n_concurrent_trials` - Concurrent trials
-- `evaluation.timeout_multiplier` - Timeout multiplier
-- `evaluation.output_path` - Results directory
-- `evaluation.cleanup` - Cleanup Docker after eval
+### MCP Client
 
-#### Dataset
-- `dataset.name` - Dataset name (terminal-bench manages automatically)
-- `dataset.version` - Dataset version
+```python
+from mcp.client.sse import sse_client
+from mcp import ClientSession
+import json
 
-#### Logging
-- `logging.level` - Log level
-- `logging.format` - Log format string
+async def execute_command(mcp_url: str, command: str):
+    async with sse_client(f"{mcp_url}/sse") as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
 
-#### A2A
-- `a2a.message_timeout` - Message timeout (seconds)
-- `a2a.health_check_timeout` - Health check timeout (seconds)
+            result = await session.call_tool(
+                "execute_bash_command",
+                arguments={"command": command}
+            )
 
-### Security
+            # Returns: {command, returncode, stdout, stderr}
+            return json.loads(result.content[0].text)
+```
 
-1. Never commit `.env` (already gitignored)
-2. Rotate API keys regularly
-3. Use `blocked_commands` to prevent dangerous operations
+### LLM Solver
 
-## Troubleshooting
+```python
+from openai import AsyncOpenAI
 
-### Configuration Issues
+async def solve_with_llm(instruction: str, mcp_url: str, max_iterations: int = 30):
+    client = AsyncOpenAI()
+    messages = [{"role": "user", "content": instruction}]
 
-**Settings not loading?**
-- Check `config.toml` is in project root
-- Verify `.env` exists
-- Check for syntax errors
+    async with sse_client(f"{mcp_url}/sse") as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
 
-**API key not found?**
-- Ensure `.env` exists (copy from `.env.example`)
-- Check exact key name (case-sensitive)
-- Remove extra quotes/spaces
+            for _ in range(max_iterations):
+                response = await client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    tools=[{
+                        "type": "function",
+                        "function": {
+                            "name": "execute_bash_command",
+                            "parameters": {"type": "object", "properties": {"command": {"type": "string"}}}
+                        }
+                    }]
+                )
 
-### Wrong A2A Package (Most Common!)
+                if response.choices[0].message.tool_calls:
+                    # Execute command via MCP
+                    # Add result to messages
+                    # Continue loop
+                elif "TASK_COMPLETE" in response.choices[0].message.content:
+                    return "Task completed"
+```
+
+### Reference Implementation
+
+See complete working example:
+
+- `white_agent/white_agent.py` - A2A server
+- `white_agent/white_agent_helpers.py` - MCP client + LLM integration
+
+## Running Evaluations
+
+Start three terminals with the virtual environment activated:
+
+**Terminal 1 - White Agent:**
 
 ```bash
-# If you see: ModuleNotFoundError: No module named 'a2a.server'
-pip uninstall -y a2a
-pip install a2a-sdk openai-agents
-
-# Verify
-python -c "from a2a.server.apps import A2AStarletteApplication; print('OK')"
+python -m white_agent
 ```
 
-**Note:** `a2a` (0.44) is a web scraper. You need `a2a-sdk` (0.3.x) for Agent-to-Agent protocol!
+**Terminal 2 - Green Agent:**
 
-### Agent Card Validation
-
-Check your `*.toml` files have:
-```toml
-description = "..."  # NOT [description] section
-url = "http://localhost:PORT/"
-streaming = true  # NOT false
-[[skills]]  # Double brackets NOT [skills]
-```
-
-### Green Agent Issues
-
-**Can't import terminal_bench**
 ```bash
-pip install terminal-bench
-terminal-bench datasets download --dataset terminal-bench-core
+python -m src.green_agent
 ```
 
-**Docker errors**
+**Terminal 3 - Kickoff:**
+
 ```bash
-docker ps  # Ensure Docker is running
-docker images | grep terminal-bench
+python -m src.kickoff
 ```
 
-### White Agent Issues
+The kickoff script validates both agents are running, then starts evaluation. Results are saved to `eval_results/green_agent_eval_TIMESTAMP/`.
 
-**Can't connect to white agent**
-```bash
-curl http://localhost:8001/agent/card  # Should return agent card
-```
-
-**Agent receives tasks but fails**
-- Check agent logs for errors
-- Verify agent has terminal execution tools
-- Test manually with simple A2A messages
-
-### Communication Issues
-
-- Check both agents use compatible A2A versions
-- Verify message structure matches A2A spec
-- Check logs for detailed error messages
-
-## Advanced Usage
-
-### Custom Datasets
-
-For custom terminal-bench datasets, modify the harness initialization in `src/green_agent/agent.py`. Standard datasets are managed automatically via `dataset.name` and `dataset.version`.
-
-### Integration with AgentBeats
-
-1. Wrap green agent with `AgentBeatsExecutor`
-2. Add battle logging/tracking
-3. Register as scenario in AgentBeats format
-
-## Results
-
-Results saved to `./eval_results/green_agent_eval_TIMESTAMP/`:
-- `results.json` - Overall results
-- `run_metadata.json` - Run configuration
-- `task_id/` - Per-task results
-  - `results.json` - Task results
-  - `sessions/` - Terminal recordings
-  - `agent_interaction.log` - Communication logs
-
-## Next Steps
-
-1. **Implement Real Agent** - Replace example with your agent
-2. **Add Tools** - Implement terminal execution
-3. **Test Full Dataset** - Run on complete terminal-bench
-4. **Add Metrics** - Track custom metrics and logging
+**Stop evaluation:** Press `Ctrl+C` in any terminal.

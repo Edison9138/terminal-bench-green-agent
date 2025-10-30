@@ -1,148 +1,168 @@
 # Terminal-Bench Green Agent
 
-A green agent that evaluates other agents' capabilities on the terminal-bench benchmark using the A2A protocol.
+A green agent that evaluates other agents on [terminal-bench](https://www.tbench.ai/) using the A2A protocol.
+
+## Overview
+
+This project implements a **green agent** (evaluator) that runs terminal-bench to evaluate **white agents** (agents under test). Communication between agents uses the A2A protocol, and white agents execute bash commands via task-scoped MCP servers.
+
+### Key Features
+
+- **Multi-agent evaluation framework** using A2A protocol
+- **Task-scoped MCP servers** for isolated bash command execution
+- **Docker-based sandboxing** for secure task environments
+- **Flexible configuration** via TOML
+- **Comprehensive logging** of agent interactions and command execution
 
 ## Architecture
 
 ```
-Kickoff Script ──[A2A]──> Green Agent ──[terminal-bench]──> A2A Adapter ──[A2A]──> White Agent
-(src/kickoff.py)          (port 9999)                       (translates)          (port 8001)
+┌─────────────┐         ┌──────────────┐         ┌─────────────┐         ┌─────────────┐
+│   Kickoff   │  A2A    │ Green Agent  │  A2A    │ A2A Adapter │   MCP   │ White Agent │
+│  (kickoff)  ├────────►│ (evaluator)  ├────────►│  (bridge)   ├────────►│  (solver)   │
+└─────────────┘         └──────────────┘         └─────────────┘         └─────────────┘
+                              │                          │
+                              │                          │
+                              ▼                          ▼
+                        Terminal-Bench            Task MCP Server
+                          Harness                 (bash execution)
 ```
 
-**Flow:**
-1. Kickoff sends task config to green agent via A2A
-2. Green agent runs terminal-bench harness
-3. Harness uses A2A adapter to communicate with white agent
-4. White agent solves tasks and returns results
-5. Green agent collects results and reports back
+### Components
+
+#### 1. Kickoff (`src/kickoff.py`)
+
+- Entry point that initiates evaluation
+- Sends evaluation configuration to green agent via A2A
+- Validates both agents are running before starting
+
+#### 2. Green Agent (`src/green_agent/`)
+
+- **`green_agent.py`**: Evaluator that orchestrates terminal-bench harness
+- **`task_mcp_server.py`**: Creates and manages task-scoped MCP servers
+- Receives evaluation requests via A2A
+- Manages task lifecycle and collects results
+
+#### 3. A2A Adapter (`src/adapters/a2a_adapter.py`)
+
+- Bridge between terminal-bench harness and white agent
+- Implements terminal-bench's agent interface
+- Translates terminal-bench calls to A2A messages
+- Creates unique MCP server for each task
+
+#### 4. White Agent (`white_agent/`)
+
+- **`white_agent.py`**: Example agent implementation with A2A interface
+- **`white_agent_helpers.py`**: MCP connection utilities and LLM integration
+- Receives tasks via A2A
+- Connects to task-specific MCP server
+- Uses LLM to solve tasks by executing bash commands
+
+### Evaluation Flow
+
+1. **Initialization**
+
+   - Kickoff validates both agents are accessible
+   - Configuration loaded from `config.toml`
+
+2. **Task Assignment**
+
+   - Kickoff sends evaluation request to green agent
+   - Green agent starts terminal-bench harness
+   - For each task, harness creates Docker container
+
+3. **Task Execution**
+
+   - A2A adapter creates unique MCP server for the task
+   - Adapter sends task instruction + MCP URL to white agent via A2A
+   - White agent connects to MCP server
+   - White agent iteratively executes bash commands via MCP
+   - MCP server forwards commands to Docker container
+
+4. **Validation**
+
+   - Terminal-bench validates task completion
+   - Results collected and scored
+
+5. **Reporting**
+   - Results saved to `eval_results/` with timestamps
+   - Includes logs, scores, and terminal recordings
 
 ## Quick Start
 
-### 1. Install
+### Building Your Own White Agent
 
-```bash
-# Setup environment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+Your white agent must:
 
-# Install terminal-bench
-pip install terminal-bench
+1. **Implement A2A interface** - Handle evaluation requests
+2. **Connect to MCP server** - Parse MCP URL from task instruction
+3. **Execute bash commands** - Use `execute_bash_command` tool
+4. **Return results** - Send completion status via A2A
 
-# Download dataset
-terminal-bench datasets download --dataset terminal-bench-core
-
-# Configure API key
-cp .env.example .env
-# Edit .env and add: OPENAI_API_KEY="sk-your-key"
-```
-
-### 2. Run Evaluation
-
-Start three terminals:
+**See [SETUP.md](SETUP.md) for detailed installation, configuration, and implementation guide with code examples.**
 
 ```bash
 # Terminal 1: Start white agent
-./scripts/start_white_agent.sh
+python -m white_agent
 
 # Terminal 2: Start green agent
-./scripts/start_green_agent.sh
+python -m src.green_agent
 
 # Terminal 3: Run evaluation
-./scripts/run_eval.sh
+python -m src.kickoff
 ```
-
-### 3. Verify Setup
-
-- [ ] Both agents start without errors
-- [ ] `curl http://localhost:8001/agent/card` returns agent card
-- [ ] Evaluation completes and shows results
-- [ ] `ls eval_results/` shows results directory
-
-## Configuration
-
-Edit `config.toml` for your evaluation:
-
-```toml
-[white_agent]
-model = "gpt-4o-mini"
-max_iterations = 10
-blocked_commands = []
-
-[evaluation]
-task_ids = ["hello-world", "create-bucket"]  # Directory names, not numbers
-n_attempts = 1
-timeout_multiplier = 1.0
-cleanup = true
-
-[dataset]
-name = "terminal-bench-core"
-version = "head"
-```
-
-**All fields in config.toml are REQUIRED.**
-
-See [SETUP.md](SETUP.md) for complete configuration reference.
 
 ## Project Structure
 
 ```
 terminal-bench-green-agent/
 ├── src/
-│   ├── green_agent/agent.py       # Evaluator that runs terminal-bench
-│   ├── adapters/a2a_white_agent.py  # Bridges terminal-bench ↔ A2A
-│   ├── kickoff.py                  # Sends eval requests
-│   └── config/settings.py          # Config loader
+│   ├── green_agent/
+│   │   ├── green_agent.py      # Evaluator (runs terminal-bench)
+│   │   ├── task_mcp_server.py  # Task-scoped MCP servers
+│   │   └── card.toml            # Green agent A2A card
+│   ├── adapters/
+│   │   └── a2a_adapter.py      # Terminal-bench ↔ A2A bridge
+│   ├── config/
+│   │   └── settings.py         # Configuration loader
+│   ├── utils/
+│   │   └── a2a_client.py       # A2A client utilities
+│   └── kickoff.py              # Evaluation initiator
 ├── white_agent/
-│   └── llm_white_agent.py          # Example LLM-powered agent
-├── scripts/                         # Helper scripts
-├── config.toml                      # Configuration
-└── eval_results/                    # Results (generated)
+│   ├── white_agent.py          # Example white agent
+│   └── white_agent_helpers.py  # MCP & LLM helpers
+├── scripts/
+│   ├── setup.sh                # Installation script
+│   └── setup_dataset.py        # Dataset downloader
+├── config.toml                 # Configuration file
+├── requirements.txt            # Python dependencies
+└── eval_results/               # Evaluation results (generated)
 ```
 
-## Common Issues
+## Results Structure
 
-### Wrong A2A Package
-```bash
-# If you see: ModuleNotFoundError: No module named 'a2a.server'
-pip uninstall -y a2a
-pip install a2a-sdk openai-agents
+Results are saved to `eval_results/green_agent_eval_TIMESTAMP/`:
+
+```
+green_agent_eval_20251030_120000/
+├── results.json              # Overall evaluation metrics
+├── run_metadata.json         # Configuration snapshot
+├── run.log                   # Detailed harness logs
+└── task-id/                  # Per-task directory
+    ├── task-id.N-of-M.*/     # Individual trial
+    │   ├── results.json      # Task-specific scores
+    │   ├── sessions/         # Terminal recordings (asciinema)
+    │   └── agent_interaction.log  # A2A/MCP messages
+    └── ...
 ```
 
-### Agent Card Errors
-Agent cards must have:
-- `streaming = true` in `[capabilities]`
-- `url = "http://localhost:PORT/"`
-- `[[skills]]` with double brackets
+### Key Metrics
 
-### Missing Dataset
-```bash
-terminal-bench datasets download --dataset terminal-bench-core
-```
+- **Success rate**: Percentage of tasks completed successfully
+- **Command efficiency**: Number of commands executed per task
+- **Time taken**: Total duration per task
+- **Error analysis**: Common failure patterns
 
-See [SETUP.md](SETUP.md) for detailed troubleshooting.
+## License
 
-## Development
-
-```bash
-# Start agents
-python -m src.green_agent
-python -m white_agent
-python -m src.kickoff
-
-# Import in code
-from src.green_agent.agent import TerminalBenchGreenAgentExecutor
-from src.adapters.a2a_white_agent import A2AWhiteAgent
-from src.config import settings
-```
-
-## Next Steps
-
-1. **Customize White Agent** - See [SETUP.md](SETUP.md) → "Building Your White Agent"
-2. **Run More Tasks** - Add task IDs to `config.toml`
-3. **Integrate with AgentBeats** - Wrap with AgentBeats executor
-
-## Documentation
-
-- **SETUP.md** - Detailed setup, configuration reference, building agents, troubleshooting
-- **ARCHITECTURE.txt** - Detailed architecture diagram
+MIT License - see [LICENSE](LICENSE)

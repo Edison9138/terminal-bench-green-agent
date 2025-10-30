@@ -1,25 +1,10 @@
-# Terminal-Bench Green Agent Dependencies
-
-# Core A2A framework (correct package name!)
+# Project Dependencies
 a2a-sdk>=0.3.0
-
-# Terminal-bench (install with: pip install terminal-bench)
-# After installation, download the dataset with:
-# terminal-bench datasets download --dataset terminal-bench-core
-
-# HTTP client for A2A communication
+terminal-bench>=0.1.0
+mcp>=1.0.0
 httpx>=0.25.0
-
-# Web framework for green agent server
 uvicorn>=0.24.0
 starlette>=0.32.0
-
-# Data validation
 pydantic>=2.0.0
-
-# Utilities
 python-dotenv>=1.0.0
-
-# OpenAI for LLM-powered white agent
 openai>=1.0.0
-
