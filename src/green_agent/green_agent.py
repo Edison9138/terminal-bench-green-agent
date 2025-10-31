@@ -117,20 +117,208 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         self, results: BenchmarkResults, config: dict[str, Any]
     ) -> str:
         """Format evaluation results into a human-readable message."""
+        TASK_DIFFICULTY_MAP = {
+            "count-dataset-tokens": "easy",
+            "create-bucket": "easy",
+            "csv-to-parquet": "easy",
+            "extract-safely": "easy",
+            "fix-permissions": "easy",
+            "git-workflow-hack": "easy",
+            "grid-pattern-transform": "easy",
+            "hello-world": "easy",
+            "modernize-fortran-build": "easy",
+            "processing-pipeline": "easy",
+            "security-vulhub-minio": "easy",
+            "simple-web-scraper": "easy",
+            "blind-maze-explorer-algorithm": "medium",
+            "blind-maze-explorer-algorithm.easy": "medium",
+            "blind-maze-explorer-algorithm.hard": "medium",
+            "build-initramfs-qemu": "medium",
+            "build-linux-kernel-qemu": "medium",
+            "build-tcc-qemu": "medium",
+            "chess-best-move": "medium",
+            "conda-env-conflict-resolution": "medium",
+            "crack-7z-hash": "medium",
+            "crack-7z-hash.easy": "medium",
+            "crack-7z-hash.hard": "medium",
+            "cron-broken-network": "medium",
+            "decommissioning-service-with-sensitive-data": "medium",
+            "download-youtube": "medium",
+            "eval-mteb": "medium",
+            "eval-mteb.hard": "medium",
+            "fibonacci-server": "medium",
+            "fix-git": "medium",
+            "fix-pandas-version": "medium",
+            "get-bitcoin-nodes": "medium",
+            "heterogeneous-dates": "medium",
+            "hf-model-inference": "medium",
+            "incompatible-python-fasttext": "medium",
+            "incompatible-python-fasttext.base_with_hint": "medium",
+            "jupyter-notebook-server": "medium",
+            "new-encrypt-command": "medium",
+            "nginx-request-logging": "medium",
+            "openssl-selfsigned-cert": "medium",
+            "polyglot-c-py": "medium",
+            "qemu-alpine-ssh": "medium",
+            "qemu-startup": "medium",
+            "raman-fitting": "medium",
+            "raman-fitting.easy": "medium",
+            "reshard-c4-data": "medium",
+            "sanitize-git-repo": "medium",
+            "sanitize-git-repo.hard": "medium",
+            "simple-sheets-put": "medium",
+            "solana-data": "medium",
+            "sqlite-db-truncate": "medium",
+            "sqlite-with-gcov": "medium",
+            "swe-bench-fsspec": "medium",
+            "swe-bench-langcodes": "medium",
+            "tmux-advanced-workflow": "medium",
+            "vim-terminal-task": "medium",
+            "blind-maze-explorer-5x5": "hard",
+            "cartpole-rl-training": "hard",
+            "configure-git-webserver": "hard",
+            "extract-moves-from-video": "hard",
+            "git-multibranch": "hard",
+            "gpt2-codegolf": "hard",
+            "intrusion-detection": "hard",
+            "oom": "hard",
+            "organization-json-generator": "hard",
+            "password-recovery": "hard",
+            "path-tracing": "hard",
+            "path-tracing-reverse": "hard",
+            "play-zork": "hard",
+            "polyglot-rust-c": "hard",
+            "prove-plus-comm": "hard",
+            "pytorch-model-cli": "hard",
+            "pytorch-model-cli.easy": "hard",
+            "pytorch-model-cli.hard": "hard",
+            "run-pdp11-code": "hard",
+            "super-benchmark-upet": "hard",
+            "swe-bench-astropy-1": "hard",
+            "swe-bench-astropy-2": "hard",
+            "train-fasttext": "hard",
+            "write-compressor": "hard",
+        }
+
+        DIFFICULTY_WEIGHTS = {
+            "easy": 1,
+            "medium": 2,
+            "hard": 3,
+            "unknown": 1,
+        }
+
+        category_scores = {
+            "easy": [],
+            "medium": [],
+            "hard": [],
+            "unknown": [],
+        }
+        task_scores_list = []
+        
+        base_output_dir = Path(settings.eval_output_path)
+
+        for result in results.results:
+            parser_results = {}
+            task_id = result.task_id
+            
+            if not result.recording_path:
+                logger.warning(f"No recording_path for task {task_id}, cannot load parser_results.")
+            else:
+                try:
+                    trial_dir = base_output_dir / Path(result.recording_path).parent.parent
+                    results_json_path = trial_dir / "results.json"
+
+                    if results_json_path.exists():
+                        with open(results_json_path, 'r') as f:
+                            trial_data = json.load(f)
+                        
+                        if "parser_results" in trial_data and isinstance(trial_data["parser_results"], dict):
+                            parser_results = trial_data["parser_results"]
+                        else:
+                            logger.warning(f"No 'parser_results' dict found in {results_json_path}")
+                    else:
+                        logger.warning(f"results.json not found at {results_json_path}")
+                except Exception as e:
+                    logger.error(f"Error loading {results_json_path} for task {task_id}: {e}", exc_info=True)
+
+            num_tests = 0
+            num_passed = 0
+            test_case_score_component = 0.0
+
+            if parser_results:
+                num_tests = len(parser_results)
+                if num_tests > 0:
+                    num_passed = sum(
+                        1
+                        for status in parser_results.values()
+                        if status == "passed"
+                    )
+                    test_case_score_component = 0.5 * (num_passed / num_tests)
+
+            resolved_score_component = 0.5 if result.is_resolved else 0.0
+            task_score = test_case_score_component + resolved_score_component
+
+            difficulty = TASK_DIFFICULTY_MAP.get(task_id, "unknown")
+            category_scores[difficulty].append(task_score)
+
+            task_scores_list.append(
+                {
+                    "id": task_id,
+                    "score": task_score,
+                    "is_resolved": result.is_resolved,
+                    "tests_passed": num_passed,
+                    "tests_total": num_tests,
+                    "failure_mode": result.failure_mode,
+                    "total_input_tokens": result.total_input_tokens,
+                    "total_output_tokens": result.total_output_tokens,
+                }
+            )
+        
+        avg = lambda scores: (sum(scores) / len(scores), len(scores)) if scores else (0.0, 0)
+        
+        easy_avg, easy_count = avg(category_scores["easy"])
+        medium_avg, medium_count = avg(category_scores["medium"])
+        hard_avg, hard_count = avg(category_scores["hard"])
+        unknown_avg, unknown_count = avg(category_scores["unknown"])
+
+        total_weighted_score = (sum(category_scores["easy"]) * DIFFICULTY_WEIGHTS["easy"]) + \
+                               (sum(category_scores["medium"]) * DIFFICULTY_WEIGHTS["medium"]) + \
+                               (sum(category_scores["hard"]) * DIFFICULTY_WEIGHTS["hard"]) + \
+                               (sum(category_scores["unknown"]) * DIFFICULTY_WEIGHTS["unknown"])
+
+        total_possible_weight = (easy_count * DIFFICULTY_WEIGHTS["easy"]) + \
+                                (medium_count * DIFFICULTY_WEIGHTS["medium"]) + \
+                                (hard_count * DIFFICULTY_WEIGHTS["hard"]) + \
+                                (unknown_count * DIFFICULTY_WEIGHTS["unknown"])
+        
+        if total_possible_weight == 0:
+            weighted_overall_avg = 0.0
+        else:
+            weighted_overall_avg = total_weighted_score / total_possible_weight
+            
+        overall_count = easy_count + medium_count + hard_count + unknown_count
 
         message = f"""
 Terminal-Bench Evaluation Results
 =====================================
+(Weighting: Easy=1, Medium=2, Hard=3)
 
-Overall Performance:
-- Accuracy: {results.accuracy:.2%}
-- Resolved: {results.n_resolved}/{len(results.results)}
-- Unresolved: {results.n_unresolved}/{len(results.results)}
+Evaluation Summary:
+- Overall Score: {weighted_overall_avg:.2%}
+- Resolved: {results.n_resolved}/{overall_count}
+- Unresolved: {results.n_unresolved}/{overall_count}
 
+Scores by Difficulty (Unweighted Avg):
+- Easy:   {easy_avg:.2%}
+- Medium: {medium_avg:.2%}
+- Hard:   {hard_avg:.2%}
 """
+        if unknown_count > 0:
+            message += f"- Unknown: {unknown_avg:.2%} ({unknown_count} tasks) -- *Task ID not in TASK_DIFFICULTY_MAP*\n"
+
 
         if results.pass_at_k:
-            message += "Pass@k Metrics:\n"
+            message += "\nPass@k Metrics (based on is_resolved):\n"
             for k, score in results.pass_at_k.items():
                 if score is not None:
                     message += f"- Pass@{k}: {score:.2%}\n"
@@ -140,13 +328,19 @@ Overall Performance:
         message += "Task Results:\n"
         message += "-" * 60 + "\n"
 
-        for result in results.results:
-            status = "✓ PASS" if result.is_resolved else "✗ FAIL"
-            message += f"{status} - {result.task_id}\n"
-            if not result.is_resolved and result.failure_mode:
-                message += f"      Failure Mode: {result.failure_mode.value}\n"
-            if result.total_input_tokens or result.total_output_tokens:
-                message += f"      Tokens: {result.total_input_tokens or 0} in, {result.total_output_tokens or 0} out\n"
+        for task in task_scores_list:
+            status = "✓" if task["is_resolved"] else "✗"
+            message += f"{status} Score: {task['score']:.2%} - {task['id']} (Tests: {task['tests_passed']}/{task['tests_total']})\n"
+
+            if not task["is_resolved"] and task["failure_mode"]:
+                failure_mode_val = (
+                    task["failure_mode"].value
+                    if hasattr(task["failure_mode"], "value")
+                    else task["failure_mode"]
+                )
+                message += f"      Failure Mode: {failure_mode_val}\n"
+            if task["total_input_tokens"] or task["total_output_tokens"]:
+                message += f"      Tokens: {task['total_input_tokens'] or 0} in, {task['total_output_tokens'] or 0} out\n"
 
         message += "\n" + "=" * 60 + "\n"
 
