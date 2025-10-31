@@ -158,10 +158,14 @@ green_agent_eval_20251030_120000/
 
 ### Key Metrics
 
+- **Overall Score**: Weighted score based on task difficulty
 - **Success rate**: Percentage of tasks completed successfully
+- **Test case pass rate**: Percentage of individual test cases passed per task
 - **Command efficiency**: Number of commands executed per task
 - **Time taken**: Total duration per task
 - **Error analysis**: Common failure patterns
+
+**Note:** Scoring weights are configurable in `config.toml` under the `[scoring]` section. See [SETUP.md](SETUP.md) for details.
 
 ## License
 

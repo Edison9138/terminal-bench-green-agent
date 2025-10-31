@@ -146,5 +146,17 @@ class Settings:
     def a2a_health_check_timeout(self) -> float:
         return float(self._required("a2a.health_check_timeout"))
 
+    @property
+    def difficulty_weights(self) -> dict[str, int]:
+        """Get difficulty weights for scoring."""
+        weights = self._required("scoring.difficulty_weights")
+        return weights
+
+    @property
+    def task_difficulty_map(self) -> dict[str, str]:
+        """Get task difficulty mapping for scoring."""
+        task_map = self._required("scoring.task_difficulty_map")
+        return task_map
+
 
 settings = Settings()

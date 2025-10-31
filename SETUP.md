@@ -51,12 +51,22 @@ timeout_multiplier = 1.0    # Adjust timeouts
 [dataset]
 name = "terminal-bench-core"
 version = "0.1.1"
+
+[scoring]
+# Weights for computing overall weighted score
+[scoring.difficulty_weights]
+easy = 1
+medium = 2
+hard = 3
+unknown = 1
+# ... (see config.toml for complete list)
 ```
 
 **Available tasks:** Check `~/.cache/terminal-bench/terminal-bench-core/tasks/` for all task IDs.
 
-See `config.toml` for all configuration options (ports, logging, A2A settings, etc).
+**Scoring Configuration:** The evaluation system computes a weighted overall score based on task difficulty. Each task gets a score from 0.0 to 1.0 (50% from test case pass rate, 50% from is_resolved status). The overall score is weighted by difficulty (easy=1, medium=2, hard=3). You can customize these weights in `config.toml` under the `[scoring]` section.
 
+See `config.toml` for all configuration options (ports, logging, A2A settings, etc).
 
 ## Building Your White Agent
 

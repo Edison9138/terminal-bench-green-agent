@@ -117,95 +117,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         self, results: BenchmarkResults, config: dict[str, Any]
     ) -> str:
         """Format evaluation results into a human-readable message."""
-        TASK_DIFFICULTY_MAP = {
-            "count-dataset-tokens": "easy",
-            "create-bucket": "easy",
-            "csv-to-parquet": "easy",
-            "extract-safely": "easy",
-            "fix-permissions": "easy",
-            "git-workflow-hack": "easy",
-            "grid-pattern-transform": "easy",
-            "hello-world": "easy",
-            "modernize-fortran-build": "easy",
-            "processing-pipeline": "easy",
-            "security-vulhub-minio": "easy",
-            "simple-web-scraper": "easy",
-            "blind-maze-explorer-algorithm": "medium",
-            "blind-maze-explorer-algorithm.easy": "medium",
-            "blind-maze-explorer-algorithm.hard": "medium",
-            "build-initramfs-qemu": "medium",
-            "build-linux-kernel-qemu": "medium",
-            "build-tcc-qemu": "medium",
-            "chess-best-move": "medium",
-            "conda-env-conflict-resolution": "medium",
-            "crack-7z-hash": "medium",
-            "crack-7z-hash.easy": "medium",
-            "crack-7z-hash.hard": "medium",
-            "cron-broken-network": "medium",
-            "decommissioning-service-with-sensitive-data": "medium",
-            "download-youtube": "medium",
-            "eval-mteb": "medium",
-            "eval-mteb.hard": "medium",
-            "fibonacci-server": "medium",
-            "fix-git": "medium",
-            "fix-pandas-version": "medium",
-            "get-bitcoin-nodes": "medium",
-            "heterogeneous-dates": "medium",
-            "hf-model-inference": "medium",
-            "incompatible-python-fasttext": "medium",
-            "incompatible-python-fasttext.base_with_hint": "medium",
-            "jupyter-notebook-server": "medium",
-            "new-encrypt-command": "medium",
-            "nginx-request-logging": "medium",
-            "openssl-selfsigned-cert": "medium",
-            "polyglot-c-py": "medium",
-            "qemu-alpine-ssh": "medium",
-            "qemu-startup": "medium",
-            "raman-fitting": "medium",
-            "raman-fitting.easy": "medium",
-            "reshard-c4-data": "medium",
-            "sanitize-git-repo": "medium",
-            "sanitize-git-repo.hard": "medium",
-            "simple-sheets-put": "medium",
-            "solana-data": "medium",
-            "sqlite-db-truncate": "medium",
-            "sqlite-with-gcov": "medium",
-            "swe-bench-fsspec": "medium",
-            "swe-bench-langcodes": "medium",
-            "tmux-advanced-workflow": "medium",
-            "vim-terminal-task": "medium",
-            "blind-maze-explorer-5x5": "hard",
-            "cartpole-rl-training": "hard",
-            "configure-git-webserver": "hard",
-            "extract-moves-from-video": "hard",
-            "git-multibranch": "hard",
-            "gpt2-codegolf": "hard",
-            "intrusion-detection": "hard",
-            "oom": "hard",
-            "organization-json-generator": "hard",
-            "password-recovery": "hard",
-            "path-tracing": "hard",
-            "path-tracing-reverse": "hard",
-            "play-zork": "hard",
-            "polyglot-rust-c": "hard",
-            "prove-plus-comm": "hard",
-            "pytorch-model-cli": "hard",
-            "pytorch-model-cli.easy": "hard",
-            "pytorch-model-cli.hard": "hard",
-            "run-pdp11-code": "hard",
-            "super-benchmark-upet": "hard",
-            "swe-bench-astropy-1": "hard",
-            "swe-bench-astropy-2": "hard",
-            "train-fasttext": "hard",
-            "write-compressor": "hard",
-        }
-
-        DIFFICULTY_WEIGHTS = {
-            "easy": 1,
-            "medium": 2,
-            "hard": 3,
-            "unknown": 1,
-        }
+        # Load scoring configuration from settings
+        TASK_DIFFICULTY_MAP = settings.task_difficulty_map
+        DIFFICULTY_WEIGHTS = settings.difficulty_weights
 
         category_scores = {
             "easy": [],
@@ -214,32 +128,43 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             "unknown": [],
         }
         task_scores_list = []
-        
+
         base_output_dir = Path(settings.eval_output_path)
 
         for result in results.results:
             parser_results = {}
             task_id = result.task_id
-            
+
             if not result.recording_path:
-                logger.warning(f"No recording_path for task {task_id}, cannot load parser_results.")
+                logger.warning(
+                    f"No recording_path for task {task_id}, cannot load parser_results."
+                )
             else:
                 try:
-                    trial_dir = base_output_dir / Path(result.recording_path).parent.parent
+                    trial_dir = (
+                        base_output_dir / Path(result.recording_path).parent.parent
+                    )
                     results_json_path = trial_dir / "results.json"
 
                     if results_json_path.exists():
-                        with open(results_json_path, 'r') as f:
+                        with open(results_json_path, "r") as f:
                             trial_data = json.load(f)
-                        
-                        if "parser_results" in trial_data and isinstance(trial_data["parser_results"], dict):
+
+                        if "parser_results" in trial_data and isinstance(
+                            trial_data["parser_results"], dict
+                        ):
                             parser_results = trial_data["parser_results"]
                         else:
-                            logger.warning(f"No 'parser_results' dict found in {results_json_path}")
+                            logger.warning(
+                                f"No 'parser_results' dict found in {results_json_path}"
+                            )
                     else:
                         logger.warning(f"results.json not found at {results_json_path}")
                 except Exception as e:
-                    logger.error(f"Error loading {results_json_path} for task {task_id}: {e}", exc_info=True)
+                    logger.error(
+                        f"Error loading {results_json_path} for task {task_id}: {e}",
+                        exc_info=True,
+                    )
 
             num_tests = 0
             num_passed = 0
@@ -249,9 +174,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 num_tests = len(parser_results)
                 if num_tests > 0:
                     num_passed = sum(
-                        1
-                        for status in parser_results.values()
-                        if status == "passed"
+                        1 for status in parser_results.values() if status == "passed"
                     )
                     test_case_score_component = 0.5 * (num_passed / num_tests)
 
@@ -273,29 +196,35 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                     "total_output_tokens": result.total_output_tokens,
                 }
             )
-        
-        avg = lambda scores: (sum(scores) / len(scores), len(scores)) if scores else (0.0, 0)
-        
+
+        avg = lambda scores: (
+            (sum(scores) / len(scores), len(scores)) if scores else (0.0, 0)
+        )
+
         easy_avg, easy_count = avg(category_scores["easy"])
         medium_avg, medium_count = avg(category_scores["medium"])
         hard_avg, hard_count = avg(category_scores["hard"])
         unknown_avg, unknown_count = avg(category_scores["unknown"])
 
-        total_weighted_score = (sum(category_scores["easy"]) * DIFFICULTY_WEIGHTS["easy"]) + \
-                               (sum(category_scores["medium"]) * DIFFICULTY_WEIGHTS["medium"]) + \
-                               (sum(category_scores["hard"]) * DIFFICULTY_WEIGHTS["hard"]) + \
-                               (sum(category_scores["unknown"]) * DIFFICULTY_WEIGHTS["unknown"])
+        total_weighted_score = (
+            (sum(category_scores["easy"]) * DIFFICULTY_WEIGHTS["easy"])
+            + (sum(category_scores["medium"]) * DIFFICULTY_WEIGHTS["medium"])
+            + (sum(category_scores["hard"]) * DIFFICULTY_WEIGHTS["hard"])
+            + (sum(category_scores["unknown"]) * DIFFICULTY_WEIGHTS["unknown"])
+        )
 
-        total_possible_weight = (easy_count * DIFFICULTY_WEIGHTS["easy"]) + \
-                                (medium_count * DIFFICULTY_WEIGHTS["medium"]) + \
-                                (hard_count * DIFFICULTY_WEIGHTS["hard"]) + \
-                                (unknown_count * DIFFICULTY_WEIGHTS["unknown"])
-        
+        total_possible_weight = (
+            (easy_count * DIFFICULTY_WEIGHTS["easy"])
+            + (medium_count * DIFFICULTY_WEIGHTS["medium"])
+            + (hard_count * DIFFICULTY_WEIGHTS["hard"])
+            + (unknown_count * DIFFICULTY_WEIGHTS["unknown"])
+        )
+
         if total_possible_weight == 0:
             weighted_overall_avg = 0.0
         else:
             weighted_overall_avg = total_weighted_score / total_possible_weight
-            
+
         overall_count = easy_count + medium_count + hard_count + unknown_count
 
         message = f"""
@@ -315,7 +244,6 @@ Scores by Difficulty (Unweighted Avg):
 """
         if unknown_count > 0:
             message += f"- Unknown: {unknown_avg:.2%} ({unknown_count} tasks) -- *Task ID not in TASK_DIFFICULTY_MAP*\n"
-
 
         if results.pass_at_k:
             message += "\nPass@k Metrics (based on is_resolved):\n"

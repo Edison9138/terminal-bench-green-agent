@@ -61,3 +61,100 @@ format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 [a2a]
 message_timeout = 7200.0
 health_check_timeout = 5.0
+
+# Scoring Configuration
+[scoring]
+# Weights for different difficulty levels
+[scoring.difficulty_weights]
+easy = 1
+medium = 2
+hard = 3
+unknown = 1
+
+# Task difficulty mapping - YOU SHOULD NOT EDIT THIS SECTION
+[scoring.task_difficulty_map]
+# Easy tasks
+"count-dataset-tokens" = "easy"
+"create-bucket" = "easy"
+"csv-to-parquet" = "easy"
+"extract-safely" = "easy"
+"fix-permissions" = "easy"
+"git-workflow-hack" = "easy"
+"grid-pattern-transform" = "easy"
+"hello-world" = "easy"
+"modernize-fortran-build" = "easy"
+"processing-pipeline" = "easy"
+"security-vulhub-minio" = "easy"
+"simple-web-scraper" = "easy"
+
+# Medium tasks
+"blind-maze-explorer-algorithm" = "medium"
+"blind-maze-explorer-algorithm.easy" = "medium"
+"blind-maze-explorer-algorithm.hard" = "medium"
+"build-initramfs-qemu" = "medium"
+"build-linux-kernel-qemu" = "medium"
+"build-tcc-qemu" = "medium"
+"chess-best-move" = "medium"
+"conda-env-conflict-resolution" = "medium"
+"crack-7z-hash" = "medium"
+"crack-7z-hash.easy" = "medium"
+"crack-7z-hash.hard" = "medium"
+"cron-broken-network" = "medium"
+"decommissioning-service-with-sensitive-data" = "medium"
+"download-youtube" = "medium"
+"eval-mteb" = "medium"
+"eval-mteb.hard" = "medium"
+"fibonacci-server" = "medium"
+"fix-git" = "medium"
+"fix-pandas-version" = "medium"
+"get-bitcoin-nodes" = "medium"
+"heterogeneous-dates" = "medium"
+"hf-model-inference" = "medium"
+"incompatible-python-fasttext" = "medium"
+"incompatible-python-fasttext.base_with_hint" = "medium"
+"jupyter-notebook-server" = "medium"
+"new-encrypt-command" = "medium"
+"nginx-request-logging" = "medium"
+"openssl-selfsigned-cert" = "medium"
+"polyglot-c-py" = "medium"
+"qemu-alpine-ssh" = "medium"
+"qemu-startup" = "medium"
+"raman-fitting" = "medium"
+"raman-fitting.easy" = "medium"
+"reshard-c4-data" = "medium"
+"sanitize-git-repo" = "medium"
+"sanitize-git-repo.hard" = "medium"
+"simple-sheets-put" = "medium"
+"solana-data" = "medium"
+"sqlite-db-truncate" = "medium"
+"sqlite-with-gcov" = "medium"
+"swe-bench-fsspec" = "medium"
+"swe-bench-langcodes" = "medium"
+"tmux-advanced-workflow" = "medium"
+"vim-terminal-task" = "medium"
+
+# Hard tasks
+"blind-maze-explorer-5x5" = "hard"
+"cartpole-rl-training" = "hard"
+"configure-git-webserver" = "hard"
+"extract-moves-from-video" = "hard"
+"git-multibranch" = "hard"
+"gpt2-codegolf" = "hard"
+"intrusion-detection" = "hard"
+"oom" = "hard"
+"organization-json-generator" = "hard"
+"password-recovery" = "hard"
+"path-tracing" = "hard"
+"path-tracing-reverse" = "hard"
+"play-zork" = "hard"
+"polyglot-rust-c" = "hard"
+"prove-plus-comm" = "hard"
+"pytorch-model-cli" = "hard"
+"pytorch-model-cli.easy" = "hard"
+"pytorch-model-cli.hard" = "hard"
+"run-pdp11-code" = "hard"
+"super-benchmark-upet" = "hard"
+"swe-bench-astropy-1" = "hard"
+"swe-bench-astropy-2" = "hard"
+"train-fasttext" = "hard"
+"write-compressor" = "hard"
