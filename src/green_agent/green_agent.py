@@ -245,17 +245,14 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         overall_count = easy_count + medium_count + hard_count + unknown_count
 
-        # --- New: Format failure mode summary string ---
         failure_summary_message = ""
         if failure_mode_counts:
             failure_summary_message = "\nFailure Mode Summary:\n"
-            # Sort by count, descending
             sorted_failures = sorted(
                 failure_mode_counts.items(), key=lambda item: item[1], reverse=True
             )
             for mode, count in sorted_failures:
                 failure_summary_message += f"- {mode}: {count}\n"
-        # --- End new logic ---
 
         message = f"""
 Terminal-Bench Evaluation Results
@@ -263,19 +260,19 @@ Terminal-Bench Evaluation Results
 (Weighting: Easy=1, Medium=2, Hard=3)
 
 Evaluation Summary:
-- Overall Score: {weighted_overall_avg:.2%} (Weighted)
+- Overall Score: {weighted_overall_avg:.2%}
 - Resolved: {results.n_resolved}/{overall_count}
 - Unresolved: {results.n_unresolved}/{overall_count}
 
 Scores by Difficulty (Unweighted Avg):
-- Easy:   {easy_avg:.2%} ({easy_count} tasks)
-- Medium: {medium_avg:.2%} ({medium_count} tasks)
-- Hard:   {hard_avg:.2%} ({hard_count} tasks)
+- Easy:   {easy_avg:.2%}
+- Medium: {medium_avg:.2%}
+- Hard:   {hard_avg:.2%}
 """
         if unknown_count > 0:
             message += f"- Unknown: {unknown_avg:.2%} ({unknown_count} tasks) -- *Task ID not in TASK_DIFFICULTY_MAP*\n"
 
-        message += failure_summary_message  # <-- New: Added failure summary
+        message += failure_summary_message
 
         if results.pass_at_k:
             message += "\nPass@k Metrics (based on is_resolved):\n"
