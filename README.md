@@ -1,172 +1,188 @@
-# Terminal-Bench Green Agent
+# AgentBeats with Terminal-Bench
 
-A green agent that evaluates other agents on [terminal-bench](https://www.tbench.ai/) using the A2A protocol.
+This is a clean AgentBeats repository configured specifically for running Terminal-Bench evaluations.
 
-## Overview
-
-This project implements a **green agent** (evaluator) that runs terminal-bench to evaluate **white agents** (agents under test). Communication between agents uses the A2A protocol, and white agents execute bash commands via task-scoped MCP servers.
-
-### Key Features
-
-- **Multi-agent evaluation framework** using A2A protocol
-- **Task-scoped MCP servers** for isolated bash command execution
-- **Docker-based sandboxing** for secure task environments
-- **Flexible configuration** via TOML
-- **Comprehensive logging** of agent interactions and command execution
-
-## Architecture
-
-```
-┌─────────────┐         ┌──────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Kickoff   │  A2A    │ Green Agent  │  A2A    │ A2A Adapter │   MCP   │ White Agent │
-│  (kickoff)  ├────────►│ (evaluator)  ├────────►│  (bridge)   ├────────►│  (solver)   │
-└─────────────┘         └──────────────┘         └─────────────┘         └─────────────┘
-                              │                          │
-                              │                          │
-                              ▼                          ▼
-                        Terminal-Bench            Task MCP Server
-                          Harness                 (bash execution)
-```
-
-### Components
-
-#### 1. Kickoff (`src/kickoff.py`)
-
-- Entry point that initiates evaluation
-- Sends evaluation configuration to green agent via A2A
-- Validates both agents are running before starting
-
-#### 2. Green Agent (`src/green_agent/`)
-
-- **`green_agent.py`**: Evaluator that orchestrates terminal-bench harness
-- **`task_mcp_server.py`**: Creates and manages task-scoped MCP servers
-- Receives evaluation requests via A2A
-- Manages task lifecycle and collects results
-
-#### 3. A2A Adapter (`src/adapters/a2a_adapter.py`)
-
-- Bridge between terminal-bench harness and white agent
-- Implements terminal-bench's agent interface
-- Translates terminal-bench calls to A2A messages
-- Creates unique MCP server for each task
-
-#### 4. White Agent (`white_agent/`)
-
-- **`white_agent.py`**: Example agent implementation with A2A interface
-- **`white_agent_helpers.py`**: MCP connection utilities and LLM integration
-- Receives tasks via A2A
-- Connects to task-specific MCP server
-- Uses LLM to solve tasks by executing bash commands
-
-### Evaluation Flow
-
-1. **Initialization**
-
-   - Kickoff validates both agents are accessible
-   - Configuration loaded from `config.toml`
-
-2. **Task Assignment**
-
-   - Kickoff sends evaluation request to green agent
-   - Green agent starts terminal-bench harness
-   - For each task, harness creates Docker container
-
-3. **Task Execution**
-
-   - A2A adapter creates unique MCP server for the task
-   - Adapter sends task instruction + MCP URL to white agent via A2A
-   - White agent connects to MCP server
-   - White agent iteratively executes bash commands via MCP
-   - MCP server forwards commands to Docker container
-
-4. **Validation**
-
-   - Terminal-bench validates task completion
-   - Results collected and scored
-
-5. **Reporting**
-   - Results saved to `eval_results/` with timestamps
-   - Includes logs, scores, and terminal recordings
+A fully integrated Terminal-Bench evaluation system with **dual mode support**:
+- 🎯 **AgentBeats Platform Mode**: Web UI, battle management, and full platform features
+- ⚙️ **Standalone Mode**: Direct evaluation without AgentBeats dependencies
 
 ## Quick Start
 
-### Building Your Own White Agent
+### 1. Setup Environment
 
-Your white agent must:
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
 
-1. **Implement A2A interface** - Handle evaluation requests
-2. **Connect to MCP server** - Parse MCP URL from task instruction
-3. **Execute bash commands** - Use `execute_bash_command` tool
-4. **Return results** - Send completion status via A2A
+# Install dependencies (Method 1 - Recommended)
+pip install -e .
+pip install -r scenarios/terminal_bench/requirements.txt
 
-**See [SETUP.md](SETUP.md) for detailed installation, configuration, and implementation guide with code examples.**
+# OR use the consolidated requirements (Method 2 - Alternative)
+# pip install -r requirements.txt
+# pip install -e .
+```
+
+### 2. Setup API Keys
+
+Create a `.env` file in the repository root (recommended):
+
+```bash
+# Copy example file and edit with your keys
+cp .env.example .env
+# Then edit .env with your actual API keys
+
+# OR create manually:
+cat > .env << 'EOF'
+OPENAI_API_KEY=your-openai-api-key-here
+OPENROUTER_API_KEY=your-openrouter-api-key-here
+EOF
+```
+
+**Alternative**: Use `export` commands (works, but not persistent across terminals):
+```bash
+export OPENAI_API_KEY="your-openai-api-key-here"
+export OPENROUTER_API_KEY="your-openrouter-api-key-here"
+```
+
+**Notes**:
+- **OpenAI API Key** is required for OpenAI models (Both Green and White agents use this)
+- **OpenRouter API Key** is needed for OpenRouter models via AgentBeats Platform
+- The `.env` file is git-ignored and won't be committed to the repository
+
+### 3. Start AgentBeats Platform
+
+Deploy the complete AgentBeats stack (backend + frontend):
+
+```bash
+agentbeats deploy
+```
+
+**Note**: If this is your first time running `agentbeats deploy`, you may see an error message prompting you to install frontend dependencies:
+```
+Error: Frontend dependencies not installed. Run `agentbeats install_frontend` to install them.
+```
+If you see this message, run:
+```bash
+agentbeats install_frontend
+```
+Then run `agentbeats deploy` again.
+
+This starts:
+- **Backend**: http://localhost:9000
+- **Frontend**: http://localhost:5173
+- **MCP Server**: http://localhost:9001
+
+### 4. Setup Battle (Evaluation)
+
+With the platform running, load and register Terminal-Bench agents:
+
+```bash
+agentbeats load_scenario scenarios/terminal_bench \
+    --launch-mode separate \
+    --register_agents \
+    --backend http://localhost:9000
+```
+
+This sets up and register the green and white agents for evaluation but doesn't start battles yet.
+
+### 5. Start Battle and View Results
+
+Visit http://localhost:5173 and use dev log in to access the AgentBeats dashboard. You should see your green and white agent up and running (Green dots):
+
+![AgentBeats Dashboard](docs/assets/frontend-dashboard.png)
+
+Create battles by clicking **Start a Battle** or **Create Your Own Battle**, select the green and white agent:
+![Green and White Agent Selection](docs/assets/agent-selection.png)
+
+Finally, press **Start Battle** to begin the evaluation. Once it’s finished, you’ll see the evaluation results and performance metrics displayed in the battle log:
+
+![Evaluation finished](docs/assets/eval-finished.png)
+
+**Notes**:
+- During the battle, the status at the top may occasionally show an **error**. This is normal. As long as the agents are running correctly without crashing, the evaluation will continue. The status will change from **Error** to **Finished** once the final results are sent back from the green agent and the battle ends.
+
+## Configuration
+
+This project has **two configuration files** for different purposes:
+
+### 1. `scenarios/terminal_bench/config.toml` - Terminal-Bench Evaluation Settings
+
+**Primary configuration file** for customizing evaluations. Edit this to change:
+- **Task IDs** to evaluate (see `evaluation.task_ids`)
+- **Number of attempts** per task
+- **Concurrent trials**
+- **Dataset** settings
+
+**Most users only need to edit this file** for evaluation configuration.
+
+### 2. `scenarios/terminal_bench/scenario.toml` - AgentBeats Platform Settings
+
+Advanced AgentBeats platform configuration. Edit this to change:
+- **Agent ports** and hosts
+- **Model types and names**
+- **Launch configuration**
+
+## Directory Structure
+
+```
+.
+├── .env.example                     # API key template (copy to .env)
+├── src/                              # AgentBeats core framework
+├── frontend/                         # Web UI
+├── scenarios/
+│   └── terminal_bench/              # Terminal-Bench scenario
+│       ├── agents/                  # Green & White agent configs (AgentBeats integration)
+│       ├── src/                     # Terminal-Bench harness code (standalone mode)
+│       ├── white_agent/             # White agent implementation (standalone mode)
+│       ├── scenario.toml            # AgentBeats platform configuration
+│       ├── config.toml              # Terminal-Bench evaluation settings (PRIMARY CONFIG)
+│       ├── README.md                # Terminal-Bench documentation
+│       ├── SETUP.md                 # Standalone setup guide
+│       └── INTEGRATION.md           # AgentBeats integration guide
+├── pyproject.toml                   # Python package config
+├── requirements.txt                 # Consolidated dependencies
+└── README.md                        # This file
+```
+
+## More Information
+
+- **Running standalone** (without AgentBeats platform): See `scenarios/terminal_bench/SETUP.md`
+- **Understanding Terminal-Bench**: See `scenarios/terminal_bench/README.md`  
+- **Integration details**: See `scenarios/terminal_bench/INTEGRATION.md`
+
+## Evaluation Modes
+
+This repository supports **two evaluation modes**:
+
+### Mode 1: AgentBeats Platform (Recommended)
+
+Run evaluations through the AgentBeats platform with web UI and battle management:
+
+```bash
+# Start AgentBeats platform (backend + frontend)
+agentbeats deploy
+
+# In another terminal: Load and register agents
+agentbeats load_scenario scenarios/terminal_bench --launch-mode separate --register_agents --backend http://localhost:9000
+```
+
+### Mode 2: Standalone Mode
+
+Run evaluations directly without AgentBeats platform:
 
 ```bash
 # Terminal 1: Start white agent
 python -m white_agent
 
-# Terminal 2: Start green agent
+# Terminal 2: Start green agent  
 python -m src.green_agent
 
 # Terminal 3: Run evaluation
 python -m src.kickoff
 ```
 
-## Project Structure
-
-```
-terminal-bench-green-agent/
-├── src/
-│   ├── green_agent/
-│   │   ├── green_agent.py      # Evaluator (runs terminal-bench)
-│   │   ├── task_mcp_server.py  # Task-scoped MCP servers
-│   │   └── card.toml            # Green agent A2A card
-│   ├── adapters/
-│   │   └── a2a_adapter.py      # Terminal-bench ↔ A2A bridge
-│   ├── config/
-│   │   └── settings.py         # Configuration loader
-│   ├── utils/
-│   │   └── a2a_client.py       # A2A client utilities
-│   └── kickoff.py              # Evaluation initiator
-├── white_agent/
-│   ├── white_agent.py          # Example white agent
-│   └── white_agent_helpers.py  # MCP & LLM helpers
-├── scripts/
-│   ├── setup.sh                # Installation script
-│   └── setup_dataset.py        # Dataset downloader
-├── config.toml                 # Configuration file
-├── requirements.txt            # Python dependencies
-└── eval_results/               # Evaluation results (generated)
-```
-
-## Results Structure
-
-Results are saved to `eval_results/green_agent_eval_TIMESTAMP/`:
-
-```
-green_agent_eval_20251030_120000/
-├── results.json              # Overall evaluation metrics
-├── run_metadata.json         # Configuration snapshot
-├── run.log                   # Detailed harness logs
-└── task-id/                  # Per-task directory
-    ├── task-id.N-of-M.*/     # Individual trial
-    │   ├── results.json      # Task-specific scores
-    │   ├── sessions/         # Terminal recordings (asciinema)
-    │   └── agent_interaction.log  # A2A/MCP messages
-    └── ...
-```
-
-### Key Metrics
-
-- **Overall Score**: Weighted score based on task difficulty
-- **Success rate**: Percentage of tasks completed successfully
-- **Test case pass rate**: Percentage of individual test cases passed per task
-- **Command efficiency**: Number of commands executed per task
-- **Time taken**: Total duration per task
-- **Error analysis**: Common failure patterns
-
-**Note:** Scoring weights are configurable in `config.toml` under the `[scoring]` section. See [SETUP.md](SETUP.md) for details.
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
+See `scenarios/terminal_bench/SETUP.md` for detailed standalone instructions.
