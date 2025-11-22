@@ -1,0 +1,107 @@
+{
+  "description": "Mock BenchmarkResults with edge cases: missing parser_results, unknown task difficulty, empty results",
+  "benchmark_results": {
+    "id": "edc8887b-af28-4833-8b1e-9aea37870ff3",
+    "results": [
+      {
+        "id": "6169ae80-2f98-40c6-b7fe-c421e8be255c",
+        "trial_name": "hello-world.1-of-1.test_run",
+        "task_id": "hello-world",
+        "instruction": "Create a file called hello.txt with 'Hello, world!'",
+        "is_resolved": true,
+        "failure_mode": "none",
+        "parser_results": null,
+        "recording_path": null,
+        "total_input_tokens": 1000,
+        "total_output_tokens": 500,
+        "trial_started_at": "2025-01-01T00:00:00.000000+00:00",
+        "trial_ended_at": "2025-01-01T00:01:00.000000+00:00",
+        "agent_started_at": "2025-01-01T00:00:05.000000+00:00",
+        "agent_ended_at": "2025-01-01T00:00:30.000000+00:00",
+        "test_started_at": "2025-01-01T00:00:35.000000+00:00",
+        "test_ended_at": "2025-01-01T00:00:55.000000+00:00"
+      },
+      {
+        "id": "1dbeac88-67f6-4ed2-be94-e2220c426e3f",
+        "trial_name": "unknown-task.1-of-1.test_run",
+        "task_id": "unknown-task-not-in-difficulty-map",
+        "instruction": "Do something unknown",
+        "is_resolved": false,
+        "failure_mode": "parse_error",
+        "parser_results": {
+          "test_something": "passed",
+          "test_another": "failed"
+        },
+        "recording_path": "test_run/unknown-task/unknown-task.1-of-1.test_run/sessions/agent.cast",
+        "total_input_tokens": 1200,
+        "total_output_tokens": 600,
+        "trial_started_at": "2025-01-01T00:01:00.000000+00:00",
+        "trial_ended_at": "2025-01-01T00:02:00.000000+00:00",
+        "agent_started_at": "2025-01-01T00:01:05.000000+00:00",
+        "agent_ended_at": "2025-01-01T00:01:40.000000+00:00",
+        "test_started_at": "2025-01-01T00:01:45.000000+00:00",
+        "test_ended_at": "2025-01-01T00:01:55.000000+00:00"
+      },
+      {
+        "id": "cca7671b-1e55-402e-b5f9-57da42456900",
+        "trial_name": "csv-to-parquet.1-of-1.test_run",
+        "task_id": "csv-to-parquet",
+        "instruction": "Convert CSV to Parquet",
+        "is_resolved": false,
+        "failure_mode": "unset",
+        "parser_results": {},
+        "recording_path": "test_run/csv-to-parquet/csv-to-parquet.1-of-1.test_run/sessions/agent.cast",
+        "total_input_tokens": 900,
+        "total_output_tokens": 400,
+        "trial_started_at": "2025-01-01T00:02:00.000000+00:00",
+        "trial_ended_at": "2025-01-01T00:03:00.000000+00:00",
+        "agent_started_at": "2025-01-01T00:02:05.000000+00:00",
+        "agent_ended_at": "2025-01-01T00:02:40.000000+00:00",
+        "test_started_at": "2025-01-01T00:02:45.000000+00:00",
+        "test_ended_at": "2025-01-01T00:02:55.000000+00:00"
+      }
+    ]
+  },
+  "expected_evaluation": {
+    "task_scores": {
+      "hello-world": 0.5,
+      "unknown-task-not-in-difficulty-map": 0.25,
+      "csv-to-parquet": 0.0
+    },
+    "category_scores": {
+      "easy": {
+        "average": 0.25,
+        "count": 2,
+        "tasks": [
+          "hello-world",
+          "csv-to-parquet"
+        ]
+      },
+      "medium": {
+        "average": 0.0,
+        "count": 0,
+        "tasks": []
+      },
+      "hard": {
+        "average": 0.0,
+        "count": 0,
+        "tasks": []
+      },
+      "unknown": {
+        "average": 0.25,
+        "count": 1,
+        "tasks": [
+          "unknown-task-not-in-difficulty-map"
+        ]
+      }
+    },
+    "weighted_overall_score": 0.25,
+    "n_resolved": 1,
+    "n_unresolved": 2,
+    "failure_mode_counts": {
+      "parse_error": 1,
+      "other (unset)": 1
+    },
+    "explanation": "hello-world: parser_results=null means 0 tests, so test_case_score=0.0. But is_resolved=true, so resolved_score=0.5. Total=0.5. unknown-task: 0.5*(1/2) + 0.0 = 0.25 (not in difficulty map, defaults to 'unknown' with weight 1). csv-to-parquet: empty parser_results means 0 tests, test_case_score=0.0, is_resolved=false, so resolved_score=0.0. Total=0.0. Weighted: (0.5+0.0)*1 + 0.25*1 / (2*1 + 1*1) = 0.75/3 = 0.25"
+  }
+}
