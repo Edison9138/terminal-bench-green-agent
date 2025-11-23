@@ -5,6 +5,7 @@ This agent receives evaluation requests via A2A protocol and runs terminal-bench
 
 import json
 import logging
+import os
 import re
 import tomllib
 import uvicorn
@@ -421,7 +422,19 @@ def create_green_agent_app(agent_card_path: str) -> A2AStarletteApplication:
     return app
 
 
-def main():
+def create_green_agent_app_from_dict(agent_card_data: dict) -> A2AStarletteApplication:
+    """Create A2A application from agent card dictionary."""
+    app = A2AStarletteApplication(
+        agent_card=AgentCard(**agent_card_data),
+        http_handler=DefaultRequestHandler(
+            agent_executor=TerminalBenchGreenAgentExecutor(),
+            task_store=InMemoryTaskStore(),
+        ),
+    ).build()
+    return app
+
+
+def main(host: str | None = None, port: int | None = None):
     """Main entry point for the green agent."""
     # Setup logging
     logging.basicConfig(
@@ -432,15 +445,28 @@ def main():
     # Configuration is validated automatically when properties are accessed
     logger.info("Starting green agent with config from config.toml")
 
+    # Use provided host/port or fall back to config
+    agent_host = host if host is not None else settings.green_agent_host
+    agent_port = port if port is not None else settings.green_agent_port
+
     logger.info(
-        f"Starting Terminal-Bench Green Agent on {settings.green_agent_host}:{settings.green_agent_port}"
+        f"Starting Terminal-Bench Green Agent on {agent_host}:{agent_port}"
     )
     logger.info(f"Using agent card: {settings.green_agent_card_path}")
 
-    # Create and run app
-    app = create_green_agent_app(settings.green_agent_card_path)
-    uvicorn.run(app, host=settings.green_agent_host, port=settings.green_agent_port)
+    # Load agent card
+    with open(settings.green_agent_card_path, "rb") as f:
+        agent_card_data = tomllib.load(f)
 
+    # Use AGENT_URL from environment if available (for AgentBeats)
+    agent_url = os.getenv("AGENT_URL")
+    if agent_url:
+        agent_card_data["url"] = agent_url
+        logger.info(f"Using AGENT_URL from environment: {agent_url}")
+
+    # Create and run app
+    app = create_green_agent_app_from_dict(agent_card_data)
+    uvicorn.run(app, host=agent_host, port=agent_port)
 
 if __name__ == "__main__":
     main()

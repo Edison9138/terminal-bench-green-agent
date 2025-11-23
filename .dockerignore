@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Test files
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Evaluation results (generated at runtime)
+eval_results/
+
+# AgentBeats controller state (generated at runtime)
+.ab/
+
+# Documentation (not needed in container)
+*.md
+LICENSE
+
+# Local config (use environment variables instead)
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+

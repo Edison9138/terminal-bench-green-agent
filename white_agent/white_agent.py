@@ -1,6 +1,7 @@
 """LLM-powered white agent using MCP tools for terminal-bench evaluation."""
 
 import logging
+import os
 import re
 import uvicorn
 from openai import OpenAI
@@ -115,17 +116,25 @@ def create_llm_white_agent_app(url: str) -> A2AStarletteApplication:
     ).build()
 
 
-def main():
+def main(host: str | None = None, port: int | None = None):
     """Main entry point."""
     logging.basicConfig(
         level=getattr(logging, settings.log_level), format=settings.log_format
     )
 
-    url = f"http://{settings.white_agent_host}:{settings.white_agent_port}"
-    print(f"Starting White Agent at {url} | Model: {settings.white_agent_model}\n")
+    # Use provided host/port or fall back to config
+    agent_host = host if host is not None else settings.white_agent_host
+    agent_port = port if port is not None else settings.white_agent_port
 
-    app = create_llm_white_agent_app(url)
-    uvicorn.run(app, host=settings.white_agent_host, port=settings.white_agent_port)
+    # Use AGENT_URL from environment if available (for AgentBeats), otherwise construct from host/port
+    agent_url = os.getenv("AGENT_URL")
+    if not agent_url:
+        agent_url = f"http://{agent_host}:{agent_port}"
+    
+    print(f"Starting White Agent at {agent_url} | Model: {settings.white_agent_model}\n")
+
+    app = create_llm_white_agent_app(agent_url)
+    uvicorn.run(app, host=agent_host, port=agent_port)
 
 
 if __name__ == "__main__":
