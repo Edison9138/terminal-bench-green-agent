@@ -93,11 +93,19 @@ async def solve_task_with_llm_and_mcp(
     openai_client: OpenAI,
     model: str,
     max_iterations: int = 10,
-) -> str:
-    """Solve task using LLM with MCP tools."""
+) -> tuple[str, int, int]:
+    """Solve task using LLM with MCP tools.
+
+    Returns:
+        tuple: (response_text, total_input_tokens, total_output_tokens)
+    """
     tools_result = await mcp_session.list_tools()
     openai_tools = convert_mcp_tools_to_openai(tools_result)
     logger.info(f"Using {len(openai_tools)} MCP tools")
+
+    # Initialize token counters
+    total_input_tokens = 0
+    total_output_tokens = 0
 
     messages = [
         {
@@ -122,6 +130,12 @@ Guidelines:
         response = openai_client.chat.completions.create(
             model=model, messages=messages, tools=openai_tools, tool_choice="auto"
         )
+
+        # Track token usage from this API call
+        if response.usage:
+            total_input_tokens += response.usage.prompt_tokens
+            total_output_tokens += response.usage.completion_tokens
+            logger.debug(f"Tokens this iteration: {response.usage.prompt_tokens} in, {response.usage.completion_tokens} out")
 
         assistant_msg = response.choices[0].message
         logger.info(
@@ -153,7 +167,12 @@ Guidelines:
 
         if not assistant_msg.tool_calls:
             logger.info("No tool calls. Done.")
-            return assistant_msg.content or "Task completed."
+            logger.info(f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out")
+            return (
+                assistant_msg.content or "Task completed.",
+                total_input_tokens,
+                total_output_tokens,
+            )
 
         logger.info(f"Executing {len(assistant_msg.tool_calls)} tool(s)")
         for tool_call in assistant_msg.tool_calls:
@@ -178,4 +197,9 @@ Guidelines:
                 {"role": "tool", "tool_call_id": tool_call.id, "content": result_msg}
             )
 
-    return "Task completed (reached iteration limit)."
+    logger.info(f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out")
+    return (
+        "Task completed (reached iteration limit).",
+        total_input_tokens,
+        total_output_tokens,
+    )

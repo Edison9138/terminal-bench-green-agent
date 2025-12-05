@@ -103,6 +103,18 @@ Connect to MCP, execute bash commands to complete the task."""
                 f.write(f"INSTRUCTION:\n{message}\n{'-'*80}\n")
                 f.write(f"RESPONSE:\n{response}\n{'='*80}\n")
 
+            # Parse token counts from response
+            input_tokens = 0
+            output_tokens = 0
+
+            # Look for token metadata in format: [TOKENS] input=XXX output=YYY
+            import re
+            token_match = re.search(r'\[TOKENS\]\s+input=(\d+)\s+output=(\d+)', response)
+            if token_match:
+                input_tokens = int(token_match.group(1))
+                output_tokens = int(token_match.group(2))
+                logger.info(f"Extracted tokens: {input_tokens} in, {output_tokens} out")
+
             # Check for errors
             failure = (
                 FailureMode.UNKNOWN_AGENT_ERROR
@@ -113,8 +125,8 @@ Connect to MCP, execute bash commands to complete the task."""
             return AgentResult(
                 failure_mode=failure,
                 timestamped_markers=[],
-                total_input_tokens=0,
-                total_output_tokens=0,
+                total_input_tokens=input_tokens,
+                total_output_tokens=output_tokens,
             )
 
         finally:

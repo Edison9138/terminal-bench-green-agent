@@ -55,7 +55,7 @@ class LLMWhiteAgentExecutor(AgentExecutor):
 
             # Connect to MCP server and solve task
             async with connect_to_mcp(mcp_url) as mcp_session:
-                response = await solve_task_with_llm_and_mcp(
+                response, input_tokens, output_tokens = await solve_task_with_llm_and_mcp(
                     user_input,
                     mcp_session,
                     self.client,
@@ -63,8 +63,11 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                     settings.agent_max_iterations,
                 )
 
+            # Format response with token metadata
+            response_with_tokens = f"{response}\n\n[TOKENS] input={input_tokens} output={output_tokens}"
+
             await updater.add_artifact(
-                [Part(root=TextPart(text=response))], name="response"
+                [Part(root=TextPart(text=response_with_tokens))], name="response"
             )
             await updater.complete()
 
