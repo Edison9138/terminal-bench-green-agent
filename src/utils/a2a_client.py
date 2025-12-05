@@ -48,8 +48,15 @@ async def send_message_to_agent(
 
     httpx_client = None
     try:
-        # Create A2A client
-        httpx_client = httpx.AsyncClient(timeout=timeout)
+        # Create A2A client with explicit timeout configuration
+        # Set read timeout to None for streaming operations, keep connect timeout
+        timeout_config = httpx.Timeout(
+            connect=30.0,  # Connection timeout
+            read=None,  # No read timeout for streaming
+            write=timeout,  # Write timeout
+            pool=timeout,  # Pool timeout
+        )
+        httpx_client = httpx.AsyncClient(timeout=timeout_config)
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=agent_url)
 
         card: AgentCard | None = await resolver.get_agent_card(
