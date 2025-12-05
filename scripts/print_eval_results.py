@@ -72,9 +72,12 @@ def print_customized_results(eval_dir: Path) -> None:
         if recording_path:
             try:
                 # recording_path is relative, like: green_agent_eval_20251204_201512/task-name/trial-name/sessions/agent.cast
-                # We need to go up 2 levels from sessions/agent.cast to get to trial-name directory
-                trial_dir = Path(recording_path).parent.parent
-                trial_results_path = eval_dir / trial_dir / "results.json"
+                # Extract task and trial names (parts[1] and parts[2]), skipping the eval dir name (parts[0])
+                # to avoid duplicating it when joining with eval_dir
+                parts = Path(recording_path).parts
+                task_name = parts[1]
+                trial_name = parts[2]
+                trial_results_path = eval_dir / task_name / trial_name / "results.json"
 
                 if trial_results_path.exists():
                     with open(trial_results_path, "r") as f:
@@ -124,9 +127,9 @@ def print_customized_results(eval_dir: Path) -> None:
             if failure_mode_key == "unset":
                 failure_mode_key = "other (unset)"
 
-            failure_mode_counts[failure_mode_key] = failure_mode_counts.get(
-                failure_mode_key, 0
-            ) + 1
+            failure_mode_counts[failure_mode_key] = (
+                failure_mode_counts.get(failure_mode_key, 0) + 1
+            )
 
         # Store task score info
         task_scores_list.append(
