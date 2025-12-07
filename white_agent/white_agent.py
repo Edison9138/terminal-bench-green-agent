@@ -128,7 +128,17 @@ def main():
     print(f"Starting White Agent at {url} | Model: {settings.white_agent_model}\n")
 
     app = create_llm_white_agent_app(url)
-    uvicorn.run(app, host=settings.white_agent_host, port=settings.white_agent_port)
+
+    # Configure uvicorn with extended timeouts for long-running tasks
+    config = uvicorn.Config(
+        app,
+        host=settings.white_agent_host,
+        port=settings.white_agent_port,
+        timeout_keep_alive=3600,  # 1 hour keep-alive for long-running tasks
+        timeout_notify=3600,  # 1 hour notify timeout
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 
 if __name__ == "__main__":

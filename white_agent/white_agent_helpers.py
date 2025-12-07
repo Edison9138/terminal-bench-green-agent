@@ -26,7 +26,14 @@ class MCPConnection:
         sse_url = f"{self.mcp_url}/sse"
         logger.info(f"Connecting to {sse_url}")
 
-        self.sse_context = sse_client(sse_url)
+        # Use custom SSE read timeout from config to support long-running commands
+        sse_read_timeout = settings.mcp_sse_read_timeout
+        logger.info(f"Using SSE read timeout: {sse_read_timeout}s")
+        # Also set the base timeout to match sse_read_timeout for all HTTP operations
+        # (connect, write, pool) to prevent premature connection closure
+        self.sse_context = sse_client(
+            sse_url, timeout=sse_read_timeout, sse_read_timeout=sse_read_timeout
+        )
         self.read_stream, self.write_stream = await self.sse_context.__aenter__()
 
         self.session = ClientSession(self.read_stream, self.write_stream)

@@ -76,6 +76,11 @@ class Settings:
         return int(self._required("mcp.base_port"))
 
     @property
+    def mcp_sse_read_timeout(self) -> float:
+        """Get MCP SSE read timeout in seconds. Defaults to 1800.0 (30 min)."""
+        return float(self.get("mcp.sse_read_timeout", 1800.0))
+
+    @property
     def white_agent_host(self) -> str:
         return self._required("white_agent.host")
 
