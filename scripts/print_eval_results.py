@@ -3,7 +3,7 @@
 Post-process and print customized scoring metrics from a terminal-bench evaluation run.
 This replicates the scoring logic from green_agent.py's format_results_message().
 
-EXAMPLE USAGE: python -m scripts.print_eval_results eval_results/green_agent_eval_20251204_201512
+EXAMPLE USAGE: python -m scripts.print_eval_results eval_results/green_agent_eval_20251206_124845
 """
 
 import json
