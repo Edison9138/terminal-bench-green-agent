@@ -65,8 +65,13 @@ class TaskMCPServer:
             result = await self._execute_bash_command(command)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
-    async def _execute_bash_command(self, command: str) -> dict[str, Any]:
-        """Execute bash command in Docker container."""
+    async def _execute_bash_command(self, command: str, timeout_sec: float = 1800.0) -> dict[str, Any]:
+        """Execute bash command in Docker container.
+
+        Args:
+            command: The bash command to execute
+            timeout_sec: Maximum time to wait for the command (default: 30 minutes)
+        """
         logger.info(f"Exec: {command}")
 
         try:
@@ -82,7 +87,21 @@ class TaskMCPServer:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=timeout_sec
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"Command timed out after {timeout_sec}s: {command}")
+                process.kill()
+                await process.wait()
+                return {
+                    "command": command,
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": f"Command timed out after {timeout_sec} seconds",
+                }
 
             return {
                 "command": command,
@@ -120,15 +139,25 @@ class TaskMCPServer:
         )
 
     def start(self):
-        """Start MCP server in background thread."""
+        """Start MCP server in background thread.
+
+        Note: Using daemon=False to ensure the server thread completes gracefully
+        when shutdown() is called, rather than being killed abruptly when the
+        main thread exits. This prevents "peer closed connection" errors.
+        """
         config = uvicorn.Config(
-            self._create_app(), host="0.0.0.0", port=self.port, log_level="error"
+            self._create_app(),
+            host="0.0.0.0",
+            port=self.port,
+            log_level="error",
+            timeout_keep_alive=3600,  # 1 hour keep-alive to support long-running commands
+            timeout_notify=3600,  # 1 hour notify timeout
         )
         self.uvicorn_server = uvicorn.Server(config)
 
         self.server_thread = threading.Thread(
             target=lambda: asyncio.run(self.uvicorn_server.serve()),
-            daemon=True,
+            daemon=False,  # Use non-daemon thread for graceful shutdown
             name=f"MCP-{self.container_name}",
         )
         self.server_thread.start()
@@ -136,11 +165,17 @@ class TaskMCPServer:
         logger.info(f"MCP started on port {self.port}")
 
     def shutdown(self):
-        """Shutdown MCP server."""
+        """Shutdown MCP server gracefully.
+
+        Gives the server up to 5 seconds to complete ongoing requests before
+        forcing termination.
+        """
         if self.uvicorn_server:
             self.uvicorn_server.should_exit = True
             if self.server_thread:
-                self.server_thread.join(timeout=2.0)
+                self.server_thread.join(timeout=5.0)  # Allow more time for graceful shutdown
+                if self.server_thread.is_alive():
+                    logger.warning("MCP server thread did not exit cleanly within timeout")
             logger.info("MCP shutdown")
 
     def is_ready(self) -> bool:

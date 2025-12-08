@@ -3,12 +3,14 @@ Green Agent for evaluating other agents on terminal-bench.
 This agent receives evaluation requests via A2A protocol and runs terminal-bench harness.
 """
 
+import asyncio
 import json
 import logging
 import os
 import re
 import tomllib
 import uvicorn
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -29,6 +31,9 @@ from src.config import settings
 from src.config.settings import ConfigurationError
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for running blocking harness operations
+_harness_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="harness")
 
 
 class TerminalBenchGreenAgentExecutor(AgentExecutor):
@@ -71,9 +76,19 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         logger.info(f"Starting terminal-bench evaluation with config: {config}")
 
         # Create output directory for this evaluation run
-        run_id = f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Allow run_id to be provided for resuming incomplete runs
+        run_id = config.get("run_id") or f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         output_path = Path(settings.eval_output_path)
         output_path.mkdir(exist_ok=True)
+
+        # Check if this is a resume operation
+        run_path = output_path / run_id
+        is_resuming = run_path.exists()
+        if is_resuming:
+            logger.info(f"RESUMING existing run: {run_id}")
+            logger.info(f"Will skip completed tasks and continue with incomplete tasks only")
+        else:
+            logger.info(f"Starting NEW run: {run_id}")
 
         # Extract configuration (all required, no fallbacks)
         white_agent_url = config.get("white_agent_url")
@@ -353,8 +368,42 @@ Scores by Difficulty (Unweighted Avg):
                 ),
             )
 
-            # Run terminal-bench evaluation
-            results = self.run_terminal_bench_evaluation(task_config)
+            # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
+            # This allows us to send periodic keepalive messages
+            loop = asyncio.get_event_loop()
+            harness_future = loop.run_in_executor(
+                _harness_executor,
+                self.run_terminal_bench_evaluation,
+                task_config
+            )
+
+            # Send keepalive messages while waiting for harness to complete
+            keepalive_interval = 30  # seconds
+            keepalive_count = 0
+            while not harness_future.done():
+                try:
+                    # Wait for either the harness to complete or the keepalive interval
+                    results = await asyncio.wait_for(
+                        asyncio.shield(harness_future),
+                        timeout=keepalive_interval
+                    )
+                    break  # Harness completed
+                except asyncio.TimeoutError:
+                    # Send keepalive message
+                    keepalive_count += 1
+                    elapsed_minutes = (keepalive_count * keepalive_interval) // 60
+                    await updater.update_status(
+                        TaskState.working,
+                        new_agent_text_message(
+                            f"Evaluation in progress... ({elapsed_minutes}+ minutes elapsed)\n",
+                            task.context_id,
+                            task.id,
+                        ),
+                    )
+                    logger.debug(f"Sent keepalive message #{keepalive_count}")
+
+            # Get the result (will raise if there was an exception)
+            results = harness_future.result()
 
             # Store in history
             self.evaluation_history.append(
@@ -466,7 +515,16 @@ def main(host: str | None = None, port: int | None = None):
 
     # Create and run app
     app = create_green_agent_app_from_dict(agent_card_data)
-    uvicorn.run(app, host=agent_host, port=agent_port)
+    # Configure uvicorn with extended timeouts for long-running evaluations
+    config = uvicorn.Config(
+        app,
+        host=settings.green_agent_host,
+        port=settings.green_agent_port,
+        timeout_keep_alive=3600,  # 1 hour keep-alive for long-running evaluations
+        timeout_notify=3600,  # 1 hour notify timeout
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 if __name__ == "__main__":
     main()

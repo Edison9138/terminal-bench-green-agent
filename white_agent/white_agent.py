@@ -56,7 +56,7 @@ class LLMWhiteAgentExecutor(AgentExecutor):
 
             # Connect to MCP server and solve task
             async with connect_to_mcp(mcp_url) as mcp_session:
-                response = await solve_task_with_llm_and_mcp(
+                response, input_tokens, output_tokens = await solve_task_with_llm_and_mcp(
                     user_input,
                     mcp_session,
                     self.client,
@@ -64,8 +64,11 @@ class LLMWhiteAgentExecutor(AgentExecutor):
                     settings.agent_max_iterations,
                 )
 
+            # Format response with token metadata
+            response_with_tokens = f"{response}\n\n[TOKENS] input={input_tokens} output={output_tokens}"
+
             await updater.add_artifact(
-                [Part(root=TextPart(text=response))], name="response"
+                [Part(root=TextPart(text=response_with_tokens))], name="response"
             )
             await updater.complete()
 
@@ -126,6 +129,7 @@ def main(host: str | None = None, port: int | None = None):
     agent_host = host if host is not None else settings.white_agent_host
     agent_port = port if port is not None else settings.white_agent_port
 
+
     # Use AGENT_URL from environment if available (for AgentBeats), otherwise construct from host/port
     agent_url = os.getenv("AGENT_URL")
     if not agent_url:
@@ -134,8 +138,17 @@ def main(host: str | None = None, port: int | None = None):
     print(f"Starting White Agent at {agent_url} | Model: {settings.white_agent_model}\n")
 
     app = create_llm_white_agent_app(agent_url)
-    uvicorn.run(app, host=agent_host, port=agent_port)
 
+    # Configure uvicorn with extended timeouts for long-running tasks
+    config = uvicorn.Config(
+        app,
+        host=settings.white_agent_host,
+        port=settings.white_agent_port,
+        timeout_keep_alive=3600,  # 1 hour keep-alive for long-running tasks
+        timeout_notify=3600,  # 1 hour notify timeout
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 if __name__ == "__main__":
     main()

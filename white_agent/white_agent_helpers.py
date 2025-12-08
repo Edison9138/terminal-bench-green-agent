@@ -6,6 +6,7 @@ from typing import Any
 from openai import OpenAI
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,14 @@ class MCPConnection:
         sse_url = f"{self.mcp_url}/sse"
         logger.info(f"Connecting to {sse_url}")
 
-        self.sse_context = sse_client(sse_url)
+        # Use custom SSE read timeout from config to support long-running commands
+        sse_read_timeout = settings.mcp_sse_read_timeout
+        logger.info(f"Using SSE read timeout: {sse_read_timeout}s")
+        # Also set the base timeout to match sse_read_timeout for all HTTP operations
+        # (connect, write, pool) to prevent premature connection closure
+        self.sse_context = sse_client(
+            sse_url, timeout=sse_read_timeout, sse_read_timeout=sse_read_timeout
+        )
         self.read_stream, self.write_stream = await self.sse_context.__aenter__()
 
         self.session = ClientSession(self.read_stream, self.write_stream)
@@ -59,8 +67,25 @@ def connect_to_mcp(mcp_url: str) -> MCPConnection:
     return MCPConnection(mcp_url)
 
 
-def convert_mcp_tools_to_openai(tools_result) -> list[dict]:
-    """Convert MCP tools to OpenAI function calling format."""
+def convert_mcp_tools_to_openai_responses_api(tools_result) -> list[dict]:
+    """Convert MCP tools to OpenAI Responses API format.
+
+    For Responses API, tools have a flatter structure with name/description/parameters
+    at the top level, unlike Chat Completions API which nests them under 'function'.
+    """
+    return [
+        {
+            "type": "function",
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.inputSchema,
+        }
+        for tool in tools_result.tools
+    ]
+
+
+def convert_mcp_tools_to_openai_chat_completions(tools_result) -> list[dict]:
+    """Convert MCP tools to OpenAI Chat Completions API format."""
     return [
         {
             "type": "function",
@@ -87,17 +112,212 @@ async def call_mcp_tool(
     return {"error": "No result from MCP server"}
 
 
-async def solve_task_with_llm_and_mcp(
+async def solve_task_with_responses_api(
     user_input: str,
     mcp_session: ClientSession,
     openai_client: OpenAI,
     model: str,
     max_iterations: int = 10,
-) -> str:
-    """Solve task using LLM with MCP tools."""
+) -> tuple[str, int, int]:
+    """Solve task using LLM with MCP tools using the Responses API.
+
+    This function uses the OpenAI Responses API (client.responses.create) which is
+    required for models like gpt-5.1-codex-mini that only support v1/responses endpoint.
+
+    Returns:
+        tuple: (response_text, total_input_tokens, total_output_tokens)
+    """
     tools_result = await mcp_session.list_tools()
-    openai_tools = convert_mcp_tools_to_openai(tools_result)
+    openai_tools = convert_mcp_tools_to_openai_responses_api(tools_result)
     logger.info(f"Using {len(openai_tools)} MCP tools")
+
+    # Initialize token counters
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    # System instructions for the Responses API
+    system_instructions = """You are an expert system administrator being evaluated on the Terminal-Bench, a benchmark for ai agents in terminal environments.
+
+    Your task is to solve terminal challenges by executing bash commands step-by-step.
+
+    ## ReAct Framework
+    For each step, follow this pattern:
+
+    **Thought**: Analyze the current situation and decide what to do next
+    **Action**: Execute a bash command to make progress
+    **Observation**: Examine the command output carefully
+    **Reflection**: Assess if you're moving toward the goal or need to adjust
+
+    ## Key Principles
+    1. **Read before acting**: Use ls, cat, head to understand the environment first
+    2. **One step at a time**: Execute simple commands, verify results, then proceed
+    3. **Learn from errors**: If a command fails, analyze stderr and try a different approach
+    4. **Verify completion**: Before finishing, confirm all requirements are met
+    5. **Stay focused**: Each command should directly contribute to the task goal
+
+    ## Common Patterns
+    - Start with exploration: ls, pwd, cat README.md
+    - Check dependencies: which <tool>, <tool> --version
+    - Test incrementally: Don't write complex scripts without testing parts first
+    - Verify output: After creating/modifying files, cat or grep to confirm
+
+    When you believe the task is complete, explain what you did and why it satisfies all requirements."""
+
+    # Track previous response ID for multi-turn conversation
+    previous_response_id = None
+
+    for iteration in range(1, max_iterations + 1):
+        logger.info(f"=== Iteration {iteration}/{max_iterations} ===")
+
+        # Build request parameters
+        request_params = {
+            "model": model,
+            "instructions": system_instructions,
+            "tools": openai_tools,
+        }
+
+        # For first iteration, send user input; for subsequent iterations, use previous_response_id
+        if previous_response_id is None:
+            request_params["input"] = [{"role": "user", "content": user_input}]
+        else:
+            request_params["previous_response_id"] = previous_response_id
+
+        # Use Responses API instead of Chat Completions API
+        response = openai_client.responses.create(**request_params)
+
+        # Track token usage from this API call (Responses API uses different field names)
+        if hasattr(response, "usage") and response.usage:
+            total_input_tokens += response.usage.input_tokens
+            total_output_tokens += response.usage.output_tokens
+            logger.debug(
+                f"Tokens this iteration: {response.usage.input_tokens} in, {response.usage.output_tokens} out"
+            )
+
+        # Process response - keep checking for function calls and executing them
+        while True:
+            # Extract text output and function calls from response.output
+            text_output = ""
+            function_calls = []
+
+            for output_item in response.output:
+                if output_item.type == "message":
+                    # Extract text content from message
+                    for content_item in output_item.content:
+                        if content_item.type == "output_text":
+                            text_output += content_item.text
+                elif output_item.type == "function_call":
+                    # Collect function calls
+                    function_calls.append(output_item)
+
+            logger.info(
+                f"LLM: {text_output[:200] if text_output else 'None'} | "
+                f"Tools: {len(function_calls)}"
+            )
+
+            # If no function calls, we're done with this iteration
+            if not function_calls:
+                # If we have text output, the task is complete
+                if text_output or iteration == max_iterations:
+                    logger.info("No tool calls. Done.")
+                    logger.info(
+                        f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out"
+                    )
+                    return (
+                        text_output or "Task completed.",
+                        total_input_tokens,
+                        total_output_tokens,
+                    )
+                # Otherwise, continue to next iteration
+                break
+
+            # Execute function calls and send results back
+            logger.info(f"Executing {len(function_calls)} tool(s)")
+
+            # Collect all function call outputs
+            function_outputs = []
+            for func_call in function_calls:
+                fn_name = func_call.name
+                fn_args = json.loads(func_call.arguments)
+                logger.info(f"Tool: {fn_name} | Args: {fn_args}")
+
+                result = await call_mcp_tool(mcp_session, fn_name, fn_args)
+                logger.debug(f"Result: {result}")
+
+                # Format result message
+                if "error" in result:
+                    result_msg = f"Error: {result['error']}"
+                else:
+                    result_msg = f"Command: {result.get('command', 'N/A')}\n"
+                    result_msg += f"Exit code: {result.get('returncode', 'N/A')}\n"
+                    if result.get("stdout"):
+                        result_msg += f"Output:\n{result['stdout']}"
+                    if result.get("stderr"):
+                        result_msg += f"Error:\n{result['stderr']}"
+
+                # Collect function call output
+                function_outputs.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": func_call.call_id,
+                        "output": result_msg,
+                    }
+                )
+
+            # Send function outputs back and get new response
+            # For Responses API, we send function outputs as input with previous_response_id
+            logger.info(
+                f"Sending {len(function_outputs)} function outputs back to model"
+            )
+            response = openai_client.responses.create(
+                model=model,
+                instructions=system_instructions,
+                input=function_outputs,
+                tools=openai_tools,
+                previous_response_id=response.id,
+            )
+
+            # Track tokens from this API call
+            if hasattr(response, "usage") and response.usage:
+                total_input_tokens += response.usage.input_tokens
+                total_output_tokens += response.usage.output_tokens
+
+            # Continue the while loop to check if this response has more function calls
+
+        # Update previous_response_id for next iteration
+        previous_response_id = response.id
+
+    logger.info(
+        f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out"
+    )
+    return (
+        "Task completed (reached iteration limit).",
+        total_input_tokens,
+        total_output_tokens,
+    )
+
+
+async def solve_task_with_chat_completions_api(
+    user_input: str,
+    mcp_session: ClientSession,
+    openai_client: OpenAI,
+    model: str,
+    max_iterations: int = 10,
+) -> tuple[str, int, int]:
+    """Solve task using LLM with MCP tools using the Chat Completions API.
+
+    This function uses the OpenAI Chat Completions API (client.chat.completions.create)
+    which is required for models like gpt-4o-mini that only support v1/chat/completions endpoint.
+
+    Returns:
+        tuple: (response_text, total_input_tokens, total_output_tokens)
+    """
+    tools_result = await mcp_session.list_tools()
+    openai_tools = convert_mcp_tools_to_openai_chat_completions(tools_result)
+    logger.info(f"Using {len(openai_tools)} MCP tools")
+
+    # Initialize token counters
+    total_input_tokens = 0
+    total_output_tokens = 0
 
     messages = [
         {
@@ -122,6 +342,12 @@ Guidelines:
         response = openai_client.chat.completions.create(
             model=model, messages=messages, tools=openai_tools, tool_choice="auto"
         )
+
+        # Track token usage from this API call
+        if response.usage:
+            total_input_tokens += response.usage.prompt_tokens
+            total_output_tokens += response.usage.completion_tokens
+            logger.debug(f"Tokens this iteration: {response.usage.prompt_tokens} in, {response.usage.completion_tokens} out")
 
         assistant_msg = response.choices[0].message
         logger.info(
@@ -153,7 +379,12 @@ Guidelines:
 
         if not assistant_msg.tool_calls:
             logger.info("No tool calls. Done.")
-            return assistant_msg.content or "Task completed."
+            logger.info(f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out")
+            return (
+                assistant_msg.content or "Task completed.",
+                total_input_tokens,
+                total_output_tokens,
+            )
 
         logger.info(f"Executing {len(assistant_msg.tool_calls)} tool(s)")
         for tool_call in assistant_msg.tool_calls:
@@ -178,4 +409,52 @@ Guidelines:
                 {"role": "tool", "tool_call_id": tool_call.id, "content": result_msg}
             )
 
-    return "Task completed (reached iteration limit)."
+    logger.info(f"Total tokens used: {total_input_tokens} in, {total_output_tokens} out")
+    return (
+        "Task completed (reached iteration limit).",
+        total_input_tokens,
+        total_output_tokens,
+    )
+
+
+async def solve_task_with_llm_and_mcp(
+    user_input: str,
+    mcp_session: ClientSession,
+    openai_client: OpenAI,
+    model: str,
+    max_iterations: int = 10,
+) -> tuple[str, int, int]:
+    """Solve task using LLM with MCP tools.
+
+    This router function automatically selects the appropriate API implementation
+    based on the model being used:
+    - gpt-4o-mini and similar models: Chat Completions API
+    - gpt-5.1-codex-mini and similar models: Responses API
+
+    Returns:
+        tuple: (response_text, total_input_tokens, total_output_tokens)
+    """
+    # Models that only support Chat Completions API
+    chat_completions_models = [
+        "gpt-4o-mini",
+        "gpt-4o",
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-3.5-turbo",
+    ]
+
+    # Check if model uses Chat Completions API
+    uses_chat_completions = any(
+        chat_model in model for chat_model in chat_completions_models
+    )
+
+    if uses_chat_completions:
+        logger.info(f"Using Chat Completions API for model: {model}")
+        return await solve_task_with_chat_completions_api(
+            user_input, mcp_session, openai_client, model, max_iterations
+        )
+    else:
+        logger.info(f"Using Responses API for model: {model}")
+        return await solve_task_with_responses_api(
+            user_input, mcp_session, openai_client, model, max_iterations
+        )
