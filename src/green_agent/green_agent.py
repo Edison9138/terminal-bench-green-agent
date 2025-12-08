@@ -352,12 +352,26 @@ Scores by Difficulty (Unweighted Avg):
         logger.info("Initial status sent")
 
         try:
-            # Parse task configuration from user input
-            user_input = context.get_user_input()
-            logger.info(f"Received user input: {user_input}")
-
-            task_config = self.parse_task_config(user_input)
+            agent_url = os.getenv("AGENT_URL")
+            if agent_url:
+            # Use Agentbeats to run eval
+                task_config = {
+                    "task_ids": settings.eval_task_ids,
+                    "white_agent_url": settings.white_agent_url,
+                    "n_attempts": settings.eval_n_attempts,
+                    "n_concurrent_trials": settings.eval_n_concurrent_trials,
+                    "timeout_multiplier": settings.eval_timeout_multiplier,
+                    "dataset_name": settings.dataset_name,
+                    "dataset_version": settings.dataset_version,
+                }
+            else:
+                # Use kickoff script to run eval
+                # Parse task configuration from user input
+                user_input = context.get_user_input()
+                logger.info(f"Received user input: {user_input}")
+                task_config = self.parse_task_config(user_input)
             logger.info(f"Parsed task config: {task_config}")
+
 
             await updater.update_status(
                 TaskState.working,
