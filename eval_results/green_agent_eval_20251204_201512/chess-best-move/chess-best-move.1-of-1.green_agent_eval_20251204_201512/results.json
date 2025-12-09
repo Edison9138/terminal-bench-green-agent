@@ -1,0 +1,20 @@
+{
+    "id": "36aee005-7a19-4ca1-baf4-d7bfaeb520cf",
+    "trial_name": "chess-best-move.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "chess-best-move",
+    "instruction": "The file chess_bard.png has an image of a chess board. It is currently white to move. Write the best move for white to play to /app/move.txt in the form [src][dst], for example, e2e4 or h1h8. If there are multiple winning moves, print them all, one per line.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_move_correct": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/chess-best-move/chess-best-move.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 18424,
+    "total_output_tokens": 416,
+    "trial_started_at": "2025-12-05T05:44:22.004308+00:00",
+    "trial_ended_at": "2025-12-05T05:47:04.187270+00:00",
+    "agent_started_at": "2025-12-05T05:46:09.101282+00:00",
+    "agent_ended_at": "2025-12-05T05:46:34.432149+00:00",
+    "test_started_at": "2025-12-05T05:46:38.690052+00:00",
+    "test_ended_at": "2025-12-05T05:46:50.392188+00:00"
+}

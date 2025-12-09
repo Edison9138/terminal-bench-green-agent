@@ -1,0 +1,84 @@
+root@d519d8004ae7:/app# bash /tests/run-tests.sh; tmux wait -S done
+Hit:1 http://ports.ubuntu.com/ubuntu-ports noble InRelease
+Get:2 http://ports.ubuntu.com/ubuntu-ports noble-updates InRelease [126 kB]
+Hit:3 http://ports.ubuntu.com/ubuntu-ports noble-backports InRelease
+Get:4 http://ports.ubuntu.com/ubuntu-ports noble-security InRelease [126 kB]
+Get:5 http://ports.ubuntu.com/ubuntu-ports noble-updates/main arm64 Packages [2152 kB]
+Get:6 http://ports.ubuntu.com/ubuntu-ports noble-updates/universe arm64 Packages [1877 kB]
+Fetched 4281 kB in 3s (1517 kB/s)
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+curl is already the newest version (8.5.0-2ubuntu10.6).
+0 upgraded, 0 newly installed, 0 to remove and 34 not upgraded.
+downloading uv 0.9.15 aarch64-unknown-linux-gnu
+no checksums to verify
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Initialized project `app`
+Using CPython 3.12.3 interpreter at: /usr/bin/python3.12
+Creating virtual environment at: .venv
+Resolved 7 packages in 201ms
+Prepared 5 packages in 265ms
+Installed 5 packages in 19ms
+ + iniconfig==2.3.0
+ + packaging==25.0
+ + pluggy==1.6.0
+ + pygments==2.19.2
+ + pytest==9.0.1
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.12.3, pytest-9.0.1, pluggy-1.6.0
+rootdir: /tests
+collected 1 item
+
+../tests/test_outputs.py F                                                                                                                               [100%]
+
+=========================================================================== FAILURES ===========================================================================
+___________________________________________________________________ test_gpt2_implementation ___________________________________________________________________
+
+    def test_gpt2_implementation():
+        # Check if gpt2.c file exists and is under 5000 bytes
+        gpt2_path = Path("/app/gpt2.c")
+        assert gpt2_path.exists(), f"File {gpt2_path} does not exist"
+        assert gpt2_path.stat().st_size < 5000, (
+            f"File {gpt2_path} is larger than 5000 bytes"
+        )
+
+        # Compile the C program with gcc -O3 -lm
+        compile_result = subprocess.run(
+            ["gcc", "-O3", "/app/gpt2.c", "-lm"], capture_output=True, text=True
+        )
+>       assert compile_result.returncode == 0, (
+            f"Compilation failed: {compile_result.stderr}"
+        )
+E       AssertionError: Compilation failed: /app/gpt2.c:1:19: warning: extra tokens at end of #include directive
+E             1 | #include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n// Function to read tokenizer file and perform arg-max sampling\nvoid sample_f
+rom_gpt2(const char* ckpt_file, const char* bpe_file, const char* input, int num_tokens) {\n    // Load model weights from ckpt and BPE data from bpe file\n
+// Implement arg-max sampling logic and token generation\n\n    // For demonstration: Mock output\n    printf('GPT-2 Output: ...');\n}\n\nint main(int argc, cha
+r *argv[]) {\n    if (argc != 4) {\n        fprintf(stderr, 'Usage: %s <ckpt_file> <bpe_file> <input_string>\n', argv[0]);\n        return 1;\n    }\n    const
+char* ckpt_file = argv[1];\n    const char* bpe_file = argv[2];\n    const char* input = argv[3];\n    sample_from_gpt2(ckpt_file, bpe_file, input, 20);\n    re
+turn 0;\n}
+E               |                   ^
+E         /usr/bin/ld: /usr/lib/gcc/aarch64-linux-gnu/13/../../../aarch64-linux-gnu/Scrt1.o: in function `_start':
+E         (.text+0x1c): undefined reference to `main'
+E         /usr/bin/ld: (.text+0x20): undefined reference to `main'
+E         collect2: error: ld returned 1 exit status
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['gcc', '-O3', '/app/gpt2.c', '-lm'], returncode=1, stdout='', stderr="/app/gpt2.c:1:19: warning...nce to `main'\n/u
+sr/bin/ld: (.text+0x20): undefined reference to `main'\ncollect2: error: ld returned 1 exit status\n").returncode
+
+/tests/test_outputs.py:19: AssertionError
+=================================================================== short test summary info ====================================================================
+FAILED ../tests/test_outputs.py::test_gpt2_implementation - AssertionError: Compilation failed: /app/gpt2.c:1:19: warning: extra tokens at end of #include direc
+tive
+====================================================================== 1 failed in 0.17s =======================================================================
+root@d519d8004ae7:/app#

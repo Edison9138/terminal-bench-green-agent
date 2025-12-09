@@ -1,0 +1,21 @@
+{
+    "id": "6a1f6fa9-e430-446f-b01c-926c847038c4",
+    "trial_name": "extract-moves-from-video.1-of-1.green_agent_eval_20251206_124845",
+    "task_id": "extract-moves-from-video",
+    "instruction": "Download this video of someone playing zork. https://www.youtube.com/watch?v=ZCbvyPbhRfA. Then transcribe the entire contents of the text, and create a file /app/solution.txt that has all the moves they input, one per line, in the format 'n' or 'get bag' etc.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_solution_file_exists": "failed",
+        "test_solution_content_similarity": "failed"
+    },
+    "recording_path": "green_agent_eval_20251206_124845/extract-moves-from-video/extract-moves-from-video.1-of-1.green_agent_eval_20251206_124845/sessions/agent.cast",
+    "total_input_tokens": 1863,
+    "total_output_tokens": 984,
+    "trial_started_at": "2025-12-07T05:54:11.377963+00:00",
+    "trial_ended_at": "2025-12-07T05:54:59.636849+00:00",
+    "agent_started_at": "2025-12-07T05:54:17.781914+00:00",
+    "agent_ended_at": "2025-12-07T05:54:28.794097+00:00",
+    "test_started_at": "2025-12-07T05:54:32.327012+00:00",
+    "test_ended_at": "2025-12-07T05:54:48.128120+00:00"
+}

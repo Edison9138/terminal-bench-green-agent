@@ -1,0 +1,20 @@
+{
+    "id": "dbe62961-2661-4346-9a31-831abde2a6f0",
+    "trial_name": "fix-permissions.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "fix-permissions",
+    "instruction": "A script called 'process_data.sh' in the current directory won't run. Figure out what's wrong and fix it so the script can run successfully.",
+    "is_resolved": true,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_script_permissions": "passed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/fix-permissions/fix-permissions.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 860,
+    "total_output_tokens": 107,
+    "trial_started_at": "2025-12-05T06:26:24.412411+00:00",
+    "trial_ended_at": "2025-12-05T06:27:14.825653+00:00",
+    "agent_started_at": "2025-12-05T06:26:31.730236+00:00",
+    "agent_ended_at": "2025-12-05T06:26:38.531041+00:00",
+    "test_started_at": "2025-12-05T06:26:42.164664+00:00",
+    "test_ended_at": "2025-12-05T06:27:00.198549+00:00"
+}

@@ -1,0 +1,21 @@
+{
+    "id": "764bee4d-4f04-49bf-a218-b0a3dff917b4",
+    "trial_name": "download-youtube.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "download-youtube",
+    "instruction": "Download the first video ever uploaded to YouTube as an mp4. Then, trim the video to the final 10 seconds and save it as `result.mp4`.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_output_file_exists": "failed",
+        "test_correct_video": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/download-youtube/download-youtube.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 220700,
+    "total_output_tokens": 491,
+    "trial_started_at": "2025-12-05T05:25:36.259163+00:00",
+    "trial_ended_at": "2025-12-05T05:27:52.870640+00:00",
+    "agent_started_at": "2025-12-05T05:25:41.104875+00:00",
+    "agent_ended_at": "2025-12-05T05:27:19.303200+00:00",
+    "test_started_at": "2025-12-05T05:27:22.749338+00:00",
+    "test_ended_at": "2025-12-05T05:27:40.753792+00:00"
+}

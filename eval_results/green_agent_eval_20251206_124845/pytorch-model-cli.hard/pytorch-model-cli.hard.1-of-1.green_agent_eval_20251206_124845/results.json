@@ -1,0 +1,25 @@
+{
+    "id": "943adc06-577d-4f72-a6db-76b60b1b3d8a",
+    "trial_name": "pytorch-model-cli.hard.1-of-1.green_agent_eval_20251206_124845",
+    "task_id": "pytorch-model-cli.hard",
+    "instruction": "Your task is to implement a command line tool that can be used to run inference on an MNIST model.\nThe tool should be called with \"./cli_tool weights.json image.png\".\nThe output of the tool should only be the predicted digit (0-9).\n\nYour final output should be a binary executable called \"cli_tool\" that can be run from the command line and the \"weights.json\" which the cli_tool uses to load the model weights and a file called \"prediction.txt\" only contains the predicted digit.\nEverything should be located in the /app directory.",
+    "is_resolved": false,
+    "failure_mode": "unknown_agent_error",
+    "parser_results": {
+        "test_weights_file_exists": "passed",
+        "test_cli_tool_exists": "failed",
+        "test_prediction_file_exists": "failed",
+        "test_prediction_file_content": "failed",
+        "test_cli_tool_executable": "failed",
+        "test_cli_tool_output": "failed"
+    },
+    "recording_path": "green_agent_eval_20251206_124845/pytorch-model-cli.hard/pytorch-model-cli.hard.1-of-1.green_agent_eval_20251206_124845/sessions/agent.cast",
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "trial_started_at": "2025-12-07T05:42:38.543918+00:00",
+    "trial_ended_at": "2025-12-07T05:48:51.877247+00:00",
+    "agent_started_at": "2025-12-07T05:42:44.573028+00:00",
+    "agent_ended_at": "2025-12-07T05:46:48.770035+00:00",
+    "test_started_at": "2025-12-07T05:46:52.455485+00:00",
+    "test_ended_at": "2025-12-07T05:48:38.258711+00:00"
+}

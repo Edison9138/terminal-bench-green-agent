@@ -1,0 +1,22 @@
+{
+    "id": "355142dd-bb5e-4843-bc95-8862e291399c",
+    "trial_name": "heterogeneous-dates.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "heterogeneous-dates",
+    "instruction": "I'm headed to San Francisco and need to know how much the temperature changes each day. \n\nUse the files `daily_temp_sf_high.csv` and `daily_temp_sf_low.csv` to calculate the average\ndifference between the daily high and daily low temperatures. Save this number in a \nfile called `avg_temp.txt`. This file should only contain the number you calculate.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_avg_temp_file_exists": "passed",
+        "test_avg_temp_file_format": "passed",
+        "test_avg_temp_value": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/heterogeneous-dates/heterogeneous-dates.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 7016,
+    "total_output_tokens": 798,
+    "trial_started_at": "2025-12-05T06:16:49.866585+00:00",
+    "trial_ended_at": "2025-12-05T06:18:16.618427+00:00",
+    "agent_started_at": "2025-12-05T06:17:28.710195+00:00",
+    "agent_ended_at": "2025-12-05T06:17:49.485715+00:00",
+    "test_started_at": "2025-12-05T06:17:53.067762+00:00",
+    "test_ended_at": "2025-12-05T06:18:04.686196+00:00"
+}
