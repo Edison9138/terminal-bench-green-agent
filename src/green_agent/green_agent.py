@@ -139,11 +139,25 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             "cleanup": settings.eval_cleanup,
             "log_level": getattr(logging, settings.log_level),
         }
+
+        logger.info("=" * 60)
+        logger.info("STARTING TERMINAL-BENCH EVALUATION")
+        logger.info("=" * 60)
+        logger.info(f"Tasks to evaluate: {task_ids}")
+        logger.info(f"Attempts per task: {n_attempts}")
+        logger.info(f"Concurrent trials: {n_concurrent_trials}")
+        logger.info(f"Output directory: {output_path / run_id}")
+        logger.info("=" * 60)
+
         harness = Harness(**harness_kwargs)
 
         # Run the evaluation
         logger.info("Running terminal-bench harness...")
         results = harness.run()
+
+        logger.info("=" * 60)
+        logger.info("EVALUATION COMPLETED")
+        logger.info("=" * 60)
         logger.info(f"Evaluation complete. Accuracy: {results.accuracy:.2%}")
         logger.info(f"Results saved to: {output_path / run_id}")
 
@@ -455,7 +469,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         poll for results via tasks/get endpoint.
         """
         try:
-            logger.info(f"Background evaluation starting for task {task.id}")
+            logger.info("=" * 60)
+            logger.info(f"BACKGROUND EVALUATION STARTED - Task ID: {task.id}")
+            logger.info("=" * 60)
 
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
             loop = asyncio.get_event_loop()
@@ -472,9 +488,22 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 }
             )
 
+            # Log summary of results
+            logger.info("=" * 60)
+            logger.info("EVALUATION RESULTS SUMMARY")
+            logger.info("=" * 60)
+            logger.info(f"Total tasks: {len(results.results)}")
+            logger.info(f"Resolved: {results.n_resolved}")
+            logger.info(f"Unresolved: {results.n_unresolved}")
+            logger.info(f"Accuracy: {results.accuracy:.2%}")
+            for result in results.results:
+                status = "✅" if result.is_resolved else "❌"
+                logger.info(f"  {status} {result.task_id}: {'PASSED' if result.is_resolved else 'FAILED'}")
+            logger.info("=" * 60)
+
             # Format results message
             results_message = self.format_results_message(results, task_config)
-            logger.info(f"Evaluation complete. Results:\n{results_message}")
+            logger.info(f"Full results:\n{results_message}")
 
             # Send the artifact first (before marking complete)
             await updater.add_artifact(
@@ -560,6 +589,10 @@ def main(host: str | None = None, port: int | None = None):
         level=getattr(logging, settings.log_level),
         format=settings.log_format,
     )
+
+    # Ensure terminal_bench logs are visible
+    logging.getLogger("terminal_bench").setLevel(logging.INFO)
+    logging.getLogger("src").setLevel(logging.INFO)
 
     # Configuration is validated automatically when properties are accessed
     logger.info("Starting green agent with config from config.toml")
