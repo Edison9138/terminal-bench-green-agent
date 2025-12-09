@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import sys
 import tomllib
 import uvicorn
 from concurrent.futures import ThreadPoolExecutor
@@ -34,6 +35,12 @@ logger = logging.getLogger(__name__)
 
 # Thread pool for running blocking harness operations
 _harness_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="harness")
+
+
+def _print_to_stderr(message: str) -> None:
+    """Print message to stderr with immediate flush for platform visibility."""
+    sys.stderr.write(f"{message}\n")
+    sys.stderr.flush()
 
 
 class TerminalBenchGreenAgentExecutor(AgentExecutor):
@@ -513,9 +520,14 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         poll for results via tasks/get endpoint.
         """
         try:
-            logger.info("=" * 60)
-            logger.info(f"BACKGROUND EVALUATION STARTED - Task ID: {task.id}")
-            logger.info("=" * 60)
+            # Use both logger and direct stderr print for platform visibility
+            def log_and_print(msg: str) -> None:
+                logger.info(msg)
+                _print_to_stderr(msg)
+
+            log_and_print("=" * 60)
+            log_and_print(f"BACKGROUND EVALUATION STARTED - Task ID: {task.id}")
+            log_and_print("=" * 60)
 
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
             loop = asyncio.get_event_loop()
@@ -533,66 +545,66 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             )
 
             # Log customized scoring summary (console-friendly format)
-            logger.info("=" * 60)
-            logger.info("TERMINAL-BENCH EVALUATION RESULTS")
-            logger.info("=" * 60)
-            logger.info("(Weighting: Easy=1, Medium=2, Hard=3)")
-            logger.info("")
+            log_and_print("=" * 60)
+            log_and_print("TERMINAL-BENCH EVALUATION RESULTS")
+            log_and_print("=" * 60)
+            log_and_print("(Weighting: Easy=1, Medium=2, Hard=3)")
+            log_and_print("")
 
             # Calculate customized scoring
             scoring_summary = self._calculate_customized_scoring(results)
 
-            logger.info("Evaluation Summary:")
-            logger.info(f"- Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
-            logger.info(f"- Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
-            logger.info(f"- Unresolved: {scoring_summary['n_unresolved']}/{scoring_summary['overall_count']}")
-            logger.info("")
-            logger.info("Scores by Difficulty (Unweighted Avg):")
-            logger.info(f"- Easy:   {scoring_summary['easy_avg']:.2%} ({scoring_summary['easy_count']} tasks)")
-            logger.info(f"- Medium: {scoring_summary['medium_avg']:.2%} ({scoring_summary['medium_count']} tasks)")
-            logger.info(f"- Hard:   {scoring_summary['hard_avg']:.2%} ({scoring_summary['hard_count']} tasks)")
+            log_and_print("Evaluation Summary:")
+            log_and_print(f"- Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
+            log_and_print(f"- Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
+            log_and_print(f"- Unresolved: {scoring_summary['n_unresolved']}/{scoring_summary['overall_count']}")
+            log_and_print("")
+            log_and_print("Scores by Difficulty (Unweighted Avg):")
+            log_and_print(f"- Easy:   {scoring_summary['easy_avg']:.2%} ({scoring_summary['easy_count']} tasks)")
+            log_and_print(f"- Medium: {scoring_summary['medium_avg']:.2%} ({scoring_summary['medium_count']} tasks)")
+            log_and_print(f"- Hard:   {scoring_summary['hard_avg']:.2%} ({scoring_summary['hard_count']} tasks)")
 
             if scoring_summary['unknown_count'] > 0:
-                logger.info(f"- Unknown: {scoring_summary['unknown_avg']:.2%} ({scoring_summary['unknown_count']} tasks)")
+                log_and_print(f"- Unknown: {scoring_summary['unknown_avg']:.2%} ({scoring_summary['unknown_count']} tasks)")
 
             # Failure mode summary
             if scoring_summary['failure_mode_counts']:
-                logger.info("")
-                logger.info("Failure Mode Summary:")
+                log_and_print("")
+                log_and_print("Failure Mode Summary:")
                 sorted_failures = sorted(
                     scoring_summary['failure_mode_counts'].items(),
                     key=lambda item: item[1],
                     reverse=True
                 )
                 for mode, count in sorted_failures:
-                    logger.info(f"- {mode}: {count}")
+                    log_and_print(f"- {mode}: {count}")
 
             # Task results
-            logger.info("")
-            logger.info("Task Results:")
-            logger.info("-" * 60)
-            for task in scoring_summary['task_scores_list']:
-                status = "✓" if task["is_resolved"] else "✗"
-                logger.info(f"{status} Score: {task['score']:.2%} - {task['id']} (Tests: {task['tests_passed']}/{task['tests_total']})")
+            log_and_print("")
+            log_and_print("Task Results:")
+            log_and_print("-" * 60)
+            for task_result in scoring_summary['task_scores_list']:
+                status = "✓" if task_result["is_resolved"] else "✗"
+                log_and_print(f"{status} Score: {task_result['score']:.2%} - {task_result['id']} (Tests: {task_result['tests_passed']}/{task_result['tests_total']})")
 
-                if not task["is_resolved"] and task["failure_mode"]:
+                if not task_result["is_resolved"] and task_result["failure_mode"]:
                     failure_mode_val = (
-                        task["failure_mode"].value
-                        if hasattr(task["failure_mode"], "value")
-                        else str(task["failure_mode"])
+                        task_result["failure_mode"].value
+                        if hasattr(task_result["failure_mode"], "value")
+                        else str(task_result["failure_mode"])
                     )
                     if failure_mode_val == "unset":
                         failure_mode_val = "other (unset)"
-                    logger.info(f"      Failure Mode: {failure_mode_val}")
+                    log_and_print(f"      Failure Mode: {failure_mode_val}")
 
-                if task["total_input_tokens"] or task["total_output_tokens"]:
-                    logger.info(f"      Tokens: {task['total_input_tokens'] or 0} in, {task['total_output_tokens'] or 0} out")
+                if task_result["total_input_tokens"] or task_result["total_output_tokens"]:
+                    log_and_print(f"      Tokens: {task_result['total_input_tokens'] or 0} in, {task_result['total_output_tokens'] or 0} out")
 
-            logger.info("=" * 60)
+            log_and_print("=" * 60)
 
             # Format results message
             results_message = self.format_results_message(results, task_config)
-            logger.info(f"Full results:\n{results_message}")
+            log_and_print(f"Full results:\n{results_message}")
 
             # Send the artifact first (before marking complete)
             await updater.add_artifact(
@@ -610,7 +622,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                     task.id,
                 ),
             )
-            logger.info(f"Evaluation completed successfully for task {task.id}")
+            log_and_print(f"Evaluation completed successfully for task {task.id}")
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)
