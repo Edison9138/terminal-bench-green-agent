@@ -64,7 +64,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         Parse white agent URL from user input.
         Extracts URL from <white_agent_url> tags.
         """
-        match = re.search(r"<white_agent_url>(.*?)</white_agent_url>", user_input, re.DOTALL)
+        match = re.search(
+            r"<white_agent_url>(.*?)</white_agent_url>", user_input, re.DOTALL
+        )
         if match:
             url = match.group(1).strip()
             logger.info(f"Extracted white_agent_url from tags: {url}")
@@ -90,7 +92,10 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Create output directory for this evaluation run
         # Allow run_id to be provided for resuming incomplete runs
-        run_id = config.get("run_id") or f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        run_id = (
+            config.get("run_id")
+            or f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
         output_path = Path(settings.eval_output_path)
         output_path.mkdir(exist_ok=True)
 
@@ -99,7 +104,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         is_resuming = run_path.exists()
         if is_resuming:
             logger.info(f"RESUMING existing run: {run_id}")
-            logger.info(f"Will skip completed tasks and continue with incomplete tasks only")
+            logger.info(
+                f"Will skip completed tasks and continue with incomplete tasks only"
+            )
         else:
             logger.info(f"Starting NEW run: {run_id}")
 
@@ -223,13 +230,13 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                         if hasattr(failure_mode, "value")
                         else str(failure_mode)
                     )
-                
+
                 if failure_mode_key == "unset":
                     failure_mode_key = "other (unset)"
 
-                failure_mode_counts[failure_mode_key] = failure_mode_counts.get(
-                    failure_mode_key, 0
-                ) + 1
+                failure_mode_counts[failure_mode_key] = (
+                    failure_mode_counts.get(failure_mode_key, 0) + 1
+                )
 
             task_scores_list.append(
                 {
@@ -301,7 +308,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 | Easy       | `{easy_avg:.2%}` | {easy_count} |
 | Medium     | `{medium_avg:.2%}` | {medium_count} |
 | Hard       | `{hard_avg:.2%}` | {hard_count} |"""
-        
+
         if unknown_count > 0:
             message += f"\n| Unknown     | `{unknown_avg:.2%}` | {unknown_count} | *Task ID not in TASK_DIFFICULTY_MAP* |"
         message += failure_summary_message
@@ -330,7 +337,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 if failure_mode_val == "unset":
                     failure_mode_val = "other (unset)"
             tokens_str = f"{task['total_input_tokens'] or 0} / {task['total_output_tokens'] or 0}"
-            
+
             message += f"| {status} | `{task['score']:.2%}` | `{task['id']}` | {task['tests_passed']}/{task['tests_total']} | {failure_mode_val or '-'} | {tokens_str} |\n"
 
         return message
@@ -374,7 +381,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 # Use Agentbeats to run eval
                 task_config = {
                     "task_ids": settings.eval_task_ids,
-                    "white_agent_url": self.parse_white_agent_url(context.get_user_input()),
+                    "white_agent_url": self.parse_white_agent_url(
+                        context.get_user_input()
+                    ),
                     "n_attempts": settings.eval_n_attempts,
                     "n_concurrent_trials": settings.eval_n_concurrent_trials,
                     "timeout_multiplier": settings.eval_timeout_multiplier,
@@ -387,7 +396,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 user_input = context.get_user_input()
                 logger.info(f"Received user input: {user_input}")
                 task_config = self.parse_task_config(user_input)
-            
+
             logger.info(f"Parsed task config: {task_config}")
 
             await updater.update_status(
@@ -402,7 +411,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             # Run evaluation in background but keep execute() running to send updates
             # This ensures the platform continues to show logs/updates
             await self._run_evaluation_with_updates(task_config, updater, task)
-            
+
             logger.info("Evaluation completed, returning from execute()")
             return
 
@@ -433,14 +442,12 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         self, task_config: dict, updater: TaskUpdater, task: Any
     ) -> None:
         """Run evaluation and send periodic updates while keeping execute() alive."""
-        try:            
+        try:
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
             # This allows us to send periodic keepalive messages
             loop = asyncio.get_event_loop()
             harness_future = loop.run_in_executor(
-                _harness_executor,
-                self.run_terminal_bench_evaluation,
-                task_config
+                _harness_executor, self.run_terminal_bench_evaluation, task_config
             )
 
             # Send keepalive messages while waiting for harness to complete
@@ -451,8 +458,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 try:
                     # Wait for either the harness to complete or the keepalive interval
                     results = await asyncio.wait_for(
-                        asyncio.shield(harness_future),
-                        timeout=keepalive_interval
+                        asyncio.shield(harness_future), timeout=keepalive_interval
                     )
                     break  # Harness completed
                 except asyncio.TimeoutError:
@@ -467,7 +473,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                             task.id,
                         ),
                     )
-                    logger.info(f"Sent keepalive message #{keepalive_count} ({elapsed_minutes}+ minutes)")
+                    logger.info(
+                        f"Sent keepalive message #{keepalive_count} ({elapsed_minutes}+ minutes)"
+                    )
 
             # Get the result (will raise if there was an exception)
             results = harness_future.result()
@@ -486,6 +494,11 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
             # Send final response as both status message and artifact
             # Status message ensures it appears in the main chat view
+
+            await updater.add_artifact(
+                [Part(root=TextPart(text=results_message))],
+                name="evaluation_results",
+            )
             await updater.update_status(
                 TaskState.completed,
                 new_agent_text_message(
@@ -494,11 +507,11 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                     task.id,
                 ),
             )
-            await updater.add_artifact(
-                [Part(root=TextPart(text=results_message))],
-                name="evaluation_results",
-            )
-            await updater.complete()
+            # await updater.add_artifact(
+            #     [Part(root=TextPart(text=results_message))],
+            #     name="evaluation_results",
+            # )
+            # await updater.complete()
             logger.info("Evaluation background task completed successfully")
 
         except Exception as e:
@@ -575,9 +588,7 @@ def main(host: str | None = None, port: int | None = None):
     agent_host = host if host is not None else settings.green_agent_host
     agent_port = port if port is not None else settings.green_agent_port
 
-    logger.info(
-        f"Starting Terminal-Bench Green Agent on {agent_host}:{agent_port}"
-    )
+    logger.info(f"Starting Terminal-Bench Green Agent on {agent_host}:{agent_port}")
     logger.info(f"Using agent card: {settings.green_agent_card_path}")
 
     # Load agent card
@@ -602,6 +613,7 @@ def main(host: str | None = None, port: int | None = None):
     )
     server = uvicorn.Server(config)
     server.run()
+
 
 if __name__ == "__main__":
     main()
