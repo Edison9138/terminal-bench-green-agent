@@ -402,18 +402,22 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             await updater.update_status(
                 TaskState.working,
                 new_agent_text_message(
-                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...",
+                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...\n\n"
+                    f"Task ID: `{task.id}` - Evaluation running in background.",
                     task.context_id,
                     task.id,
                 ),
             )
 
-            # Run evaluation while keeping the SSE connection alive with frequent updates
-            # The A2A SSE stream stays open as long as we keep sending events and don't send final=True
-            # We send keepalive updates every 30 seconds to prevent Cloudflare 524 timeout (~100s)
-            await self._run_evaluation_with_keepalive(task_config, updater, task)
+            # Start evaluation in background and return immediately
+            # The platform uses message/send (non-streaming), so we must return quickly
+            # to avoid Cloudflare 524 timeout. The platform can poll tasks/get for results.
+            asyncio.create_task(
+                self._run_evaluation_in_background(task_config, updater, task),
+                name=f"evaluation-{task.id}"
+            )
 
-            logger.info(f"Evaluation completed for task {task.id}")
+            logger.info(f"Evaluation started in background for task {task.id}, returning immediately")
             return
 
         except Exception as e:
@@ -439,57 +443,25 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             except Exception as update_error:
                 logger.error(f"Failed to send error update: {update_error}")
 
-    async def _run_evaluation_with_keepalive(
+    async def _run_evaluation_in_background(
         self, task_config: dict, updater: TaskUpdater, task: Any
     ) -> None:
         """
-        Run evaluation while keeping the SSE connection alive with periodic updates.
+        Run evaluation in background as a fire-and-forget asyncio task.
 
-        The A2A SSE stream stays open as long as:
-        1. We keep sending events to the EventQueue
-        2. We haven't sent a TaskStatusUpdateEvent with final=True
-
-        We send status updates every 30 seconds to prevent Cloudflare's 524 timeout
-        (~100 seconds of no data). This keeps the HTTP connection alive while the
-        harness runs, and allows us to send the full results when complete.
+        This method runs after execute() has already returned, so the initial
+        HTTP response completes quickly (avoiding Cloudflare 524 timeout).
+        The task state is persisted in TaskStore, allowing the platform to
+        poll for results via tasks/get endpoint.
         """
         try:
-            logger.info(f"Evaluation starting for task {task.id}")
+            logger.info(f"Background evaluation starting for task {task.id}")
 
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
             loop = asyncio.get_event_loop()
-            harness_future = loop.run_in_executor(
+            results = await loop.run_in_executor(
                 _harness_executor, self.run_terminal_bench_evaluation, task_config
             )
-
-            # Send keepalive updates every 30 seconds to prevent Cloudflare 524 timeout
-            # Cloudflare times out after ~100s of no data, so 30s gives us safety margin
-            keepalive_interval = 30  # seconds
-            keepalive_count = 0
-            while not harness_future.done():
-                try:
-                    results = await asyncio.wait_for(
-                        asyncio.shield(harness_future), timeout=keepalive_interval
-                    )
-                    break  # Harness completed
-                except asyncio.TimeoutError:
-                    keepalive_count += 1
-                    elapsed_seconds = keepalive_count * keepalive_interval
-                    elapsed_minutes = elapsed_seconds // 60
-                    elapsed_display = f"{elapsed_minutes}m {elapsed_seconds % 60}s" if elapsed_minutes > 0 else f"{elapsed_seconds}s"
-
-                    await updater.update_status(
-                        TaskState.working,
-                        new_agent_text_message(
-                            f"**Evaluation in progress...** ({elapsed_display} elapsed)",
-                            task.context_id,
-                            task.id,
-                        ),
-                    )
-                    logger.info(f"Sent keepalive #{keepalive_count} ({elapsed_display})")
-
-            # Get the result (will raise if there was an exception)
-            results = harness_future.result()
 
             # Store in history
             self.evaluation_history.append(
@@ -511,7 +483,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             )
 
             # Send final completion status with results
-            # This sets final=True internally, closing the SSE stream
+            # This updates the task in TaskStore so tasks/get returns the results
             await updater.update_status(
                 TaskState.completed,
                 new_agent_text_message(
@@ -520,7 +492,7 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                     task.id,
                 ),
             )
-            logger.info("Evaluation completed successfully")
+            logger.info(f"Evaluation completed successfully for task {task.id}")
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)
