@@ -402,17 +402,21 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             await updater.update_status(
                 TaskState.working,
                 new_agent_text_message(
-                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...",
+                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...\n\n"
+                    f"Evaluation running in background. Task ID: `{task.id}`",
                     task.context_id,
                     task.id,
                 ),
             )
 
-            # Run evaluation in background but keep execute() running to send updates
-            # This ensures the platform continues to show logs/updates
-            await self._run_evaluation_with_updates(task_config, updater, task)
+            # Start evaluation in background WITHOUT awaiting
+            # This prevents Cloudflare 524 timeout (100s limit)
+            # The background task will send updates via the event_queue
+            asyncio.create_task(
+                self._run_evaluation_in_background(task_config, updater, task)
+            )
 
-            logger.info("Evaluation completed, returning from execute()")
+            logger.info(f"Evaluation started in background, returning immediately from execute(). Task ID: {task.id}")
             return
 
         except Exception as e:
@@ -438,44 +442,52 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             except Exception as update_error:
                 logger.error(f"Failed to send error update: {update_error}")
 
-    async def _run_evaluation_with_updates(
+    async def _run_evaluation_in_background(
         self, task_config: dict, updater: TaskUpdater, task: Any
     ) -> None:
-        """Run evaluation and send periodic updates while keeping execute() alive."""
+        """
+        Run evaluation in background as an asyncio task.
+
+        This method runs independently after execute() returns, so the HTTP response
+        completes quickly (avoiding Cloudflare 524 timeout). Updates are sent via
+        the event_queue which the platform can poll.
+        """
         try:
+            logger.info(f"Background evaluation starting for task {task.id}")
+
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
-            # This allows us to send periodic keepalive messages
             loop = asyncio.get_event_loop()
             harness_future = loop.run_in_executor(
                 _harness_executor, self.run_terminal_bench_evaluation, task_config
             )
 
-            # Send keepalive messages while waiting for harness to complete
-            # Keep execute() running so platform continues to show updates
-            keepalive_interval = 30  # seconds
+            # Send periodic status updates while waiting for harness to complete
+            keepalive_interval = 60  # seconds (increased since we're not blocking the response)
             keepalive_count = 0
             while not harness_future.done():
                 try:
-                    # Wait for either the harness to complete or the keepalive interval
                     results = await asyncio.wait_for(
                         asyncio.shield(harness_future), timeout=keepalive_interval
                     )
                     break  # Harness completed
                 except asyncio.TimeoutError:
-                    # Send keepalive message to show progress
                     keepalive_count += 1
                     elapsed_minutes = (keepalive_count * keepalive_interval) // 60
-                    await updater.update_status(
-                        TaskState.working,
-                        new_agent_text_message(
-                            f"**Evaluation in progress...** ({elapsed_minutes}+ minutes elapsed)",
-                            task.context_id,
-                            task.id,
-                        ),
-                    )
-                    logger.info(
-                        f"Sent keepalive message #{keepalive_count} ({elapsed_minutes}+ minutes)"
-                    )
+                    try:
+                        await updater.update_status(
+                            TaskState.working,
+                            new_agent_text_message(
+                                f"**Evaluation in progress...** ({elapsed_minutes}+ minutes elapsed)",
+                                task.context_id,
+                                task.id,
+                            ),
+                        )
+                        logger.info(
+                            f"Sent keepalive message #{keepalive_count} ({elapsed_minutes}+ minutes)"
+                        )
+                    except Exception as update_err:
+                        # Connection may be gone, but we continue the evaluation
+                        logger.warning(f"Failed to send keepalive update (continuing anyway): {update_err}")
 
             # Get the result (will raise if there was an exception)
             results = harness_future.result()
@@ -491,28 +503,29 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
             # Format results message
             results_message = self.format_results_message(results, task_config)
+            logger.info(f"Evaluation complete. Results:\n{results_message}")
 
-            # Send final response as both status message and artifact
-            # Status message ensures it appears in the main chat view
-
-            await updater.add_artifact(
-                [Part(root=TextPart(text=results_message))],
-                name="evaluation_results",
-            )
-            await updater.update_status(
-                TaskState.completed,
-                new_agent_text_message(
-                    f"✅ **Evaluation Complete!**\n\n{results_message}",
-                    task.context_id,
-                    task.id,
-                ),
-            )
-            # await updater.add_artifact(
-            #     [Part(root=TextPart(text=results_message))],
-            #     name="evaluation_results",
-            # )
-            # await updater.complete()
-            logger.info("Evaluation background task completed successfully")
+            # Try to send final response - may fail if task already in terminal state
+            try:
+                await updater.add_artifact(
+                    [Part(root=TextPart(text=results_message))],
+                    name="evaluation_results",
+                )
+                await updater.update_status(
+                    TaskState.completed,
+                    new_agent_text_message(
+                        f"✅ **Evaluation Complete!**\n\n{results_message}",
+                        task.context_id,
+                        task.id,
+                    ),
+                )
+                logger.info("Evaluation background task completed successfully")
+            except RuntimeError as e:
+                if "terminal state" in str(e):
+                    logger.warning(f"Task already in terminal state, could not send completion update: {e}")
+                    logger.info("Evaluation completed successfully but task was already terminated by platform")
+                else:
+                    raise
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)
