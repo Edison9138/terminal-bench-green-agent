@@ -1,0 +1,20 @@
+{
+    "id": "3d82f971-25ba-462f-b4e6-120d80b15dbc",
+    "trial_name": "new-encrypt-command.1-of-1.green_agent_eval_20251206_124845",
+    "task_id": "new-encrypt-command",
+    "instruction": "Please help me encrypt all the files I have in the data/ folder using rencrypt which i've just installed.\n\nI want to use the most secure encryption that it provides and the output should go into a encrypted_data/ directory where the basenames are the same.",
+    "is_resolved": true,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_success": "passed"
+    },
+    "recording_path": "green_agent_eval_20251206_124845/new-encrypt-command/new-encrypt-command.1-of-1.green_agent_eval_20251206_124845/sessions/agent.cast",
+    "total_input_tokens": 24027,
+    "total_output_tokens": 1697,
+    "trial_started_at": "2025-12-07T06:30:58.151486+00:00",
+    "trial_ended_at": "2025-12-07T06:35:00.494472+00:00",
+    "agent_started_at": "2025-12-07T06:31:12.441053+00:00",
+    "agent_ended_at": "2025-12-07T06:34:36.213576+00:00",
+    "test_started_at": "2025-12-07T06:34:40.370690+00:00",
+    "test_ended_at": "2025-12-07T06:34:47.730515+00:00"
+}

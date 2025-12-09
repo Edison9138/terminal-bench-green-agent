@@ -1,0 +1,45 @@
+(base) root@4a5dc855438b:/app# bash /tests/run-tests.sh; tmux wait -S done
+Collecting pytest
+  Downloading pytest-9.0.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting iniconfig>=1.0.1 (from pytest)
+  Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: packaging>=22 in /opt/conda/lib/python3.12/site-packages (from pytest) (24.2)
+Requirement already satisfied: pluggy<2,>=1.5 in /opt/conda/lib/python3.12/site-packages (from pytest) (1.5.0)
+Requirement already satisfied: pygments>=2.7.2 in /opt/conda/lib/python3.12/site-packages (from pytest) (2.15.1)
+Downloading pytest-9.0.1-py3-none-any.whl (373 kB)
+Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+Installing collected packages: iniconfig, pytest
+Successfully installed iniconfig-2.3.0 pytest-9.0.1
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your syst
+em unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you a
+re doing and want to suppress this warning.
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.12.9, pytest-9.0.1, pluggy-1.5.0 -- /opt/conda/bin/python
+cachedir: .pytest_cache
+rootdir: /tests
+collected 3 items
+
+../tests/test_outputs.py::test_environment_exists PASSED                                                                                                 [ 33%]
+../tests/test_outputs.py::test_environment_yml_modified PASSED                                                                                           [ 66%]
+../tests/test_outputs.py::test_imports_script_runs PASSED                                                                                                [100%]
+
+============================================================================ PASSES ============================================================================
+___________________________________________________________________ test_imports_script_runs ___________________________________________________________________
+--------------------------------------------------------------------- Captured stdout call ---------------------------------------------------------------------
+Contents of test directory:
+total 32
+drwxr-xr-x 3 root root    4096 Dec  5 04:37 .
+drwxr-xr-x 1 root root    4096 Dec  5 04:37 ..
+drwxr-xr-x 2 root root    4096 Dec  5 04:37 __pycache__
+-rw-r--r-- 1  501 dialout   70 Oct 14 16:27 run-tests.sh
+-rw-r--r-- 1  501 dialout   58 Oct 14 16:27 run-uv-pytest.sh
+-rw-r--r-- 1  501 dialout  380 Oct 14 16:27 setup-uv-pytest.sh
+-rw-r--r-- 1  501 dialout 1203 Oct 14 16:27 test_imports.py
+-rw-r--r-- 1  501 dialout 2856 Oct 14 16:27 test_outputs.py
+
+=================================================================== short test summary info ====================================================================
+PASSED ../tests/test_outputs.py::test_environment_exists
+PASSED ../tests/test_outputs.py::test_environment_yml_modified
+PASSED ../tests/test_outputs.py::test_imports_script_runs
+====================================================================== 3 passed in 11.72s ======================================================================
+(base) root@4a5dc855438b:/app#

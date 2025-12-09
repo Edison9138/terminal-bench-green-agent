@@ -1,0 +1,18 @@
+{
+    "id": "408104a7-321a-47a5-8a61-e1dd87cc8514",
+    "trial_name": "cron-broken-network.1-of-1.green_agent_eval_20251206_124845",
+    "task_id": "cron-broken-network",
+    "instruction": "For some reason I can't curl example.com, can you figure out why and what I should do to fix it?",
+    "is_resolved": null,
+    "failure_mode": "parse_error",
+    "parser_results": null,
+    "recording_path": "green_agent_eval_20251206_124845/cron-broken-network/cron-broken-network.1-of-1.green_agent_eval_20251206_124845/sessions/agent.cast",
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "trial_started_at": "2025-12-07T05:31:49.137367+00:00",
+    "trial_ended_at": "2025-12-07T05:43:42.159295+00:00",
+    "agent_started_at": "2025-12-07T05:32:21.412240+00:00",
+    "agent_ended_at": "2025-12-07T05:43:21.445304+00:00",
+    "test_started_at": "2025-12-07T05:43:25.394116+00:00",
+    "test_ended_at": "2025-12-07T05:43:29.096592+00:00"
+}

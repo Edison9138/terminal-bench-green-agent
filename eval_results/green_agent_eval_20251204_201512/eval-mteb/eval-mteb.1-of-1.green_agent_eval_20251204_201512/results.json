@@ -1,0 +1,20 @@
+{
+    "id": "f658adf7-7244-4544-ab86-5b239812fd02",
+    "trial_name": "eval-mteb.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "eval-mteb",
+    "instruction": "Evaluate the bge-small-en-v1.5 embedding model at commit id 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a using the mteb package at version 1.36.8 (already installed) on STS12. The result file should follow the default MTEB format i.e. `results/{{hf model org}__{hf model name}}/{model commit id}/{task name}.json`.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_mteb_performance": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/eval-mteb/eval-mteb.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 8432,
+    "total_output_tokens": 584,
+    "trial_started_at": "2025-12-05T04:29:31.177650+00:00",
+    "trial_ended_at": "2025-12-05T04:30:34.828574+00:00",
+    "agent_started_at": "2025-12-05T04:29:36.329516+00:00",
+    "agent_ended_at": "2025-12-05T04:30:12.414424+00:00",
+    "test_started_at": "2025-12-05T04:30:15.809779+00:00",
+    "test_ended_at": "2025-12-05T04:30:22.384307+00:00"
+}

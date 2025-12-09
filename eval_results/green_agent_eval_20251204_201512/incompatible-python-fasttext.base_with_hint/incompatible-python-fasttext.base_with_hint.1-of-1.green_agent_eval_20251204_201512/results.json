@@ -1,0 +1,22 @@
+{
+    "id": "fe6b394a-16ba-4316-8d5f-f6a9b7d7349e",
+    "trial_name": "incompatible-python-fasttext.base_with_hint.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "incompatible-python-fasttext.base_with_hint",
+    "instruction": "For some reason the fasttext python package is not currently working for me.\n\nCan you please help me figure out why and fix it?\n\nI need to be able to use it with the default python interpreter and make predictions with model.bin.\n\nPlease do not install any additional packages but see if you can fix the existing fasttext code.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_correct_output": "passed",
+        "test_site_packages_not_overly_changed": "passed",
+        "test_predict_raises_no_error": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/incompatible-python-fasttext.base_with_hint/incompatible-python-fasttext.base_with_hint.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 52866,
+    "total_output_tokens": 1342,
+    "trial_started_at": "2025-12-05T05:00:40.742033+00:00",
+    "trial_ended_at": "2025-12-05T05:04:04.379449+00:00",
+    "agent_started_at": "2025-12-05T05:02:22.143943+00:00",
+    "agent_ended_at": "2025-12-05T05:03:45.164692+00:00",
+    "test_started_at": "2025-12-05T05:03:50.063001+00:00",
+    "test_ended_at": "2025-12-05T05:03:52.951949+00:00"
+}

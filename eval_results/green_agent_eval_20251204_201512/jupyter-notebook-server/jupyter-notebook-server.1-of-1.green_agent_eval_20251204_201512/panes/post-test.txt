@@ -1,0 +1,210 @@
+root@3f188a5f7775:/app# bash /tests/run-tests.sh; tmux wait -S done
+Collecting pytest
+  Downloading pytest-9.0.1-py3-none-any.whl.metadata (7.6 kB)
+Requirement already satisfied: requests in /usr/local/lib/python3.13/site-packages (2.32.5)
+Collecting iniconfig>=1.0.1 (from pytest)
+  Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: packaging>=22 in /usr/local/lib/python3.13/site-packages (from pytest) (25.0)
+Collecting pluggy<2,>=1.5 (from pytest)
+  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+Requirement already satisfied: pygments>=2.7.2 in /usr/local/lib/python3.13/site-packages (from pytest) (2.19.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in /usr/local/lib/python3.13/site-packages (from requests) (3.4.4)
+Requirement already satisfied: idna<4,>=2.5 in /usr/local/lib/python3.13/site-packages (from requests) (3.11)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /usr/local/lib/python3.13/site-packages (from requests) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in /usr/local/lib/python3.13/site-packages (from requests) (2025.11.12)
+Downloading pytest-9.0.1-py3-none-any.whl (373 kB)
+Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+Installing collected packages: pluggy, iniconfig, pytest
+Successfully installed iniconfig-2.3.0 pluggy-1.6.0 pytest-9.0.1
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your syst
+em unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you a
+re doing and want to suppress this warning.
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.13.10, pytest-9.0.1, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /tests
+plugins: anyio-4.12.0
+collected 4 items
+
+../tests/test_outputs.py::test_jupyter_server_running PASSED                                                                                             [ 25%]
+../tests/test_outputs.py::test_jupyter_config_exists FAILED                                                                                              [ 50%]
+../tests/test_outputs.py::test_sample_notebook_exists FAILED                                                                                             [ 75%]
+../tests/test_outputs.py::test_password_authentication FAILED                                                                                            [100%]
+
+=========================================================================== FAILURES ===========================================================================
+__________________________________________________________________ test_jupyter_config_exists __________________________________________________________________
+
+    def test_jupyter_config_exists():
+        """Test that Jupyter configuration exists with correct settings."""
+        config_path = Path.home() / ".jupyter" / "jupyter_notebook_config.py"
+        assert config_path.exists(), "Jupyter configuration file does not exist"
+
+        # Check if password hash exists in config
+        config_content = config_path.read_text()
+        assert "c.NotebookApp.password" in config_content, (
+            "Password configuration not found"
+        )
+>       assert "c.NotebookApp.ip" in config_content, "IP configuration not found"
+E       AssertionError: IP configuration not found
+E       assert 'c.NotebookApp.ip' in "c.NotebookApp.port = 8888\nc.NotebookApp.allow_origin = '*'\nc.NotebookApp.password = ''\nc.NotebookApp.certfile = '/home/
+jovyan/.jupyter/mycert.pem'\nc.NotebookApp.keyfile = '/home/jovyan/.jupyter/mykey.key'\nc.NotebookApp.password = 'sha1:'\nc.NotebookApp.password = 'sha1:'\n"
+
+/tests/test_outputs.py:48: AssertionError
+_________________________________________________________________ test_sample_notebook_exists __________________________________________________________________
+
+fp = PosixPath('/app/test_notebook.ipynb'), as_version = 4, capture_validation_error = None, kwargs = {}
+f = <_io.TextIOWrapper name='/app/test_notebook.ipynb' mode='r' encoding='utf8'>
+
+    def read(fp, as_version, capture_validation_error=None, **kwargs):
+        """Read a notebook from a file as a NotebookNode of the given version.
+
+        The string can contain a notebook of any version.
+        The notebook will be returned `as_version`, converting, if necessary.
+
+        Notebook format errors will be logged.
+
+        Parameters
+        ----------
+        fp : file or str
+            A file-like object with a read method that returns unicode (use
+            ``io.open()`` in Python 2), or a path to a file.
+        as_version : int
+            The version of the notebook format to return.
+            The notebook will be converted, if necessary.
+            Pass nbformat.NO_CONVERT to prevent conversion.
+        capture_validation_error : dict, optional
+            If provided, a key of "ValidationError" with a
+            value of the ValidationError instance will be added
+            to the dictionary.
+
+        Returns
+        -------
+        nb : NotebookNode
+            The notebook that was read.
+        """
+
+        try:
+>           buf = fp.read()
+                  ^^^^^^^
+E           AttributeError: 'PosixPath' object has no attribute 'read'
+
+/usr/local/lib/python3.13/site-packages/nbformat/__init__.py:169: AttributeError
+
+During handling of the above exception, another exception occurred:
+
+s = '{"cell_type": "markdown", "metadata": {}, "source": ["# What is Jupyter Notebook?\\\\n\\\\nJupyter Notebook is an ope...t.plot(x, y)\\\\nplt.title(Sine Wav
+e)\\\\nplt.xlabel(X-axis)\\\\nplt.ylabel(Y-axis)\\\\nplt.grid()\\\\nplt.show()"]}\n'
+kwargs = {}, message = 'Notebook does not appear to be JSON: \'{"cell_type": "markdown", "metadata": {...'
+
+    def parse_json(s, **kwargs):
+        """Parse a JSON string into a dict."""
+        try:
+>           nb_dict = json.loads(s, **kwargs)
+                      ^^^^^^^^^^^^^^^^^^^^^^^
+
+/usr/local/lib/python3.13/site-packages/nbformat/reader.py:19:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/usr/local/lib/python3.13/json/__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <json.decoder.JSONDecoder object at 0xffff9927f4d0>
+s = '{"cell_type": "markdown", "metadata": {}, "source": ["# What is Jupyter Notebook?\\\\n\\\\nJupyter Notebook is an ope...t.plot(x, y)\\\\nplt.title(Sine Wav
+e)\\\\nplt.xlabel(X-axis)\\\\nplt.ylabel(Y-axis)\\\\nplt.grid()\\\\nplt.show()"]}\n'
+_w = <built-in method match of re.Pattern object at 0xffff9912c1e0>
+
+    def decode(self, s, _w=WHITESPACE.match):
+        """Return the Python representation of ``s`` (a ``str`` instance
+        containing a JSON document).
+
+        """
+        obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+        end = _w(s, end).end()
+        if end != len(s):
+>           raise JSONDecodeError("Extra data", s, end)
+E           json.decoder.JSONDecodeError: Extra data: line 1 column 256 (char 255)
+
+/usr/local/lib/python3.13/json/decoder.py:348: JSONDecodeError
+
+The above exception was the direct cause of the following exception:
+
+    def test_sample_notebook_exists():
+        """Test that the sample notebook exists with required cells."""
+        notebook_path = Path("/app/test_notebook.ipynb")
+        assert notebook_path.exists(), "Sample notebook does not exist"
+
+        # Load and parse the notebook
+>       notebook = nbformat.read(notebook_path, as_version=4)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/usr/local/lib/python3.13/site-packages/nbformat/__init__.py:172: in read
+    return reads(f.read(), as_version, capture_validation_error, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/nbformat/__init__.py:92: in reads
+    nb = reader.reads(s, **kwargs)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/site-packages/nbformat/reader.py:75: in reads
+    nb_dict = parse_json(s, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = '{"cell_type": "markdown", "metadata": {}, "source": ["# What is Jupyter Notebook?\\\\n\\\\nJupyter Notebook is an ope...t.plot(x, y)\\\\nplt.title(Sine Wav
+e)\\\\nplt.xlabel(X-axis)\\\\nplt.ylabel(Y-axis)\\\\nplt.grid()\\\\nplt.show()"]}\n'
+kwargs = {}, message = 'Notebook does not appear to be JSON: \'{"cell_type": "markdown", "metadata": {...'
+
+    def parse_json(s, **kwargs):
+        """Parse a JSON string into a dict."""
+        try:
+            nb_dict = json.loads(s, **kwargs)
+        except ValueError as e:
+            message = f"Notebook does not appear to be JSON: {s!r}"
+            # Limit the error message to 80 characters.  Display whatever JSON will fit.
+            if len(message) > 80:
+                message = message[:77] + "..."
+>           raise NotJSONError(message) from e
+E           nbformat.reader.NotJSONError: Notebook does not appear to be JSON: '{"cell_type": "markdown", "metadata": {...
+
+/usr/local/lib/python3.13/site-packages/nbformat/reader.py:25: NotJSONError
+_________________________________________________________________ test_password_authentication _________________________________________________________________
+
+    def test_password_authentication():
+        """Test that password authentication is configured correctly."""
+
+        config_path = Path.home() / ".jupyter" / "jupyter_notebook_config.py"
+        config_content = config_path.read_text()
+
+        # Extract the password hash from config
+        import re
+
+        password_match = re.search(r"c.NotebookApp.password = '(.*?)'", config_content)
+        assert password_match, "Cannot find password hash in configuration"
+
+        # Verify the password hash is valid for 'benchmarkpass'
+        password_hash = password_match.group(1)
+        expected_password = "benchmarkpass"
+
+        # Generate a new hash with the expected password and compare formats
+        # We can't directly compare hashes due to salt, but we can verify format
+        from jupyter_server.auth.security import passwd_check
+
+>       assert passwd_check(password_hash, expected_password), (
+            "Password hash does not match expected password"
+        )
+E       AssertionError: Password hash does not match expected password
+E       assert False
+E        +  where False = <function passwd_check at 0xffff95f7fc40>('', 'benchmarkpass')
+
+/tests/test_outputs.py:106: AssertionError
+============================================================================ PASSES ============================================================================
+=================================================================== short test summary info ====================================================================
+PASSED ../tests/test_outputs.py::test_jupyter_server_running
+FAILED ../tests/test_outputs.py::test_jupyter_config_exists - AssertionError: IP configuration not found
+FAILED ../tests/test_outputs.py::test_sample_notebook_exists - nbformat.reader.NotJSONError: Notebook does not appear to be JSON: '{"cell_type": "markdown", "me
+tadata": {...
+FAILED ../tests/test_outputs.py::test_password_authentication - AssertionError: Password hash does not match expected password
+================================================================= 3 failed, 1 passed in 4.21s ==================================================================
+root@3f188a5f7775:/app#

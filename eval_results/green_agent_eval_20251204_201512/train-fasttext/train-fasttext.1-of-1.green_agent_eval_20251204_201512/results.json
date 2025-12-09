@@ -1,0 +1,21 @@
+{
+    "id": "65b0e824-2dea-406e-b5a0-87f91e9d0b9f",
+    "trial_name": "train-fasttext.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "train-fasttext",
+    "instruction": "Can you train a fasttext model on the yelp data in the data/ folder?\n\nThe final model size needs to be less than 150MB but get at least 0.62 accuracy on a private test set.\n\nThe model should be saved as model.bin in the current directory.",
+    "is_resolved": false,
+    "failure_mode": "agent_timeout",
+    "parser_results": {
+        "test_accuracy": "failed",
+        "test_model_size": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/train-fasttext/train-fasttext.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "trial_started_at": "2025-12-05T04:53:15.025672+00:00",
+    "trial_ended_at": "2025-12-05T05:09:03.490372+00:00",
+    "agent_started_at": "2025-12-05T04:54:13.843042+00:00",
+    "agent_ended_at": "2025-12-05T05:08:13.513679+00:00",
+    "test_started_at": "2025-12-05T05:08:17.318142+00:00",
+    "test_ended_at": "2025-12-05T05:08:48.165228+00:00"
+}

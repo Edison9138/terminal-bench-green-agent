@@ -1,0 +1,21 @@
+{
+    "id": "2a24fb0d-31fa-48be-8e4c-c0ecd252a344",
+    "trial_name": "fix-git.1-of-1.green_agent_eval_20251204_201512",
+    "task_id": "fix-git",
+    "instruction": "I just made some changes to my personal site and checked out master, but now I can't find those changes. Please help me find them and merge them into master.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_about_file": "failed",
+        "test_layout_file": "failed"
+    },
+    "recording_path": "green_agent_eval_20251204_201512/fix-git/fix-git.1-of-1.green_agent_eval_20251204_201512/sessions/agent.cast",
+    "total_input_tokens": 19820,
+    "total_output_tokens": 1535,
+    "trial_started_at": "2025-12-05T06:34:53.425276+00:00",
+    "trial_ended_at": "2025-12-05T06:36:31.578396+00:00",
+    "agent_started_at": "2025-12-05T06:35:07.413662+00:00",
+    "agent_ended_at": "2025-12-05T06:35:57.105037+00:00",
+    "test_started_at": "2025-12-05T06:36:01.628766+00:00",
+    "test_ended_at": "2025-12-05T06:36:16.726241+00:00"
+}

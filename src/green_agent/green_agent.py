@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import sys
 import tomllib
 import uvicorn
 from concurrent.futures import ThreadPoolExecutor
@@ -20,9 +21,8 @@ from a2a.server.tasks import InMemoryTaskStore
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
-from a2a.types import AgentCard, Part, TextPart, TaskState
-from a2a.utils import new_task, new_agent_text_message
-from a2a.server.tasks import TaskUpdater
+from a2a.types import AgentCard
+from a2a.utils import new_agent_text_message
 
 from terminal_bench.harness.harness import Harness
 from terminal_bench.harness.models import BenchmarkResults
@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 # Thread pool for running blocking harness operations
 _harness_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="harness")
+
+
+def _print_to_stderr(message: str) -> None:
+    """Print message to stderr with immediate flush for platform visibility."""
+    sys.stderr.write(f"{message}\n")
+    sys.stderr.flush()
 
 
 class TerminalBenchGreenAgentExecutor(AgentExecutor):
@@ -59,6 +65,21 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         except json.JSONDecodeError:
             raise ValueError("Could not parse task configuration from user input")
 
+    def parse_white_agent_url(self, user_input: str) -> str | None:
+        """
+        Parse white agent URL from user input.
+        Extracts URL from <white_agent_url> tags.
+        """
+        match = re.search(
+            r"<white_agent_url>(.*?)</white_agent_url>", user_input, re.DOTALL
+        )
+        if match:
+            url = match.group(1).strip()
+            logger.info(f"Extracted white_agent_url from tags: {url}")
+            return url
+        logger.warning("No <white_agent_url> tag found in user input")
+        return None
+
     def run_terminal_bench_evaluation(self, config: dict[str, Any]) -> BenchmarkResults:
         """
         Run terminal-bench harness with the given configuration.
@@ -77,7 +98,10 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         # Create output directory for this evaluation run
         # Allow run_id to be provided for resuming incomplete runs
-        run_id = config.get("run_id") or f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        run_id = (
+            config.get("run_id")
+            or f"green_agent_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
         output_path = Path(settings.eval_output_path)
         output_path.mkdir(exist_ok=True)
 
@@ -86,7 +110,9 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         is_resuming = run_path.exists()
         if is_resuming:
             logger.info(f"RESUMING existing run: {run_id}")
-            logger.info(f"Will skip completed tasks and continue with incomplete tasks only")
+            logger.info(
+                f"Will skip completed tasks and continue with incomplete tasks only"
+            )
         else:
             logger.info(f"Starting NEW run: {run_id}")
 
@@ -119,20 +145,35 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             "cleanup": settings.eval_cleanup,
             "log_level": getattr(logging, settings.log_level),
         }
+
+        logger.info("=" * 60)
+        logger.info("STARTING TERMINAL-BENCH EVALUATION")
+        logger.info("=" * 60)
+        logger.info(f"Tasks to evaluate: {task_ids}")
+        logger.info(f"Attempts per task: {n_attempts}")
+        logger.info(f"Concurrent trials: {n_concurrent_trials}")
+        logger.info(f"Output directory: {output_path / run_id}")
+        logger.info("=" * 60)
+
         harness = Harness(**harness_kwargs)
 
         # Run the evaluation
         logger.info("Running terminal-bench harness...")
         results = harness.run()
+
+        logger.info("=" * 60)
+        logger.info("EVALUATION COMPLETED")
+        logger.info("=" * 60)
         logger.info(f"Evaluation complete. Accuracy: {results.accuracy:.2%}")
         logger.info(f"Results saved to: {output_path / run_id}")
 
         return results
 
-    def format_results_message(
-        self, results: BenchmarkResults, config: dict[str, Any]
-    ) -> str:
-        """Format evaluation results into a human-readable message."""
+    def _calculate_customized_scoring(self, results: BenchmarkResults) -> dict[str, Any]:
+        """
+        Calculate customized scoring metrics for terminal-bench results.
+        This extracts the scoring logic to support both logging and message formatting.
+        """
         # Load scoring configuration from settings
         TASK_DIFFICULTY_MAP = settings.task_difficulty_map
         DIFFICULTY_WEIGHTS = settings.difficulty_weights
@@ -210,13 +251,13 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                         if hasattr(failure_mode, "value")
                         else str(failure_mode)
                     )
-                
+
                 if failure_mode_key == "unset":
                     failure_mode_key = "other (unset)"
 
-                failure_mode_counts[failure_mode_key] = failure_mode_counts.get(
-                    failure_mode_key, 0
-                ) + 1
+                failure_mode_counts[failure_mode_key] = (
+                    failure_mode_counts.get(failure_mode_key, 0) + 1
+                )
 
             task_scores_list.append(
                 {
@@ -260,62 +301,108 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             weighted_overall_avg = total_weighted_score / total_possible_weight
 
         overall_count = easy_count + medium_count + hard_count + unknown_count
+        n_resolved = sum(1 for task in task_scores_list if task["is_resolved"])
+        n_unresolved = overall_count - n_resolved
 
+        return {
+            "weighted_overall_avg": weighted_overall_avg,
+            "n_resolved": n_resolved,
+            "n_unresolved": n_unresolved,
+            "overall_count": overall_count,
+            "easy_avg": easy_avg,
+            "easy_count": easy_count,
+            "medium_avg": medium_avg,
+            "medium_count": medium_count,
+            "hard_avg": hard_avg,
+            "hard_count": hard_count,
+            "unknown_avg": unknown_avg,
+            "unknown_count": unknown_count,
+            "failure_mode_counts": failure_mode_counts,
+            "task_scores_list": task_scores_list,
+            "category_scores": category_scores,
+        }
+
+    def format_results_message(
+        self, results: BenchmarkResults, config: dict[str, Any]
+    ) -> str:
+        """Format evaluation results into a human-readable message."""
+        # Use the centralized scoring calculation
+        scoring = self._calculate_customized_scoring(results)
+
+        # Extract values for readability
+        weighted_overall_avg = scoring["weighted_overall_avg"]
+        n_resolved = scoring["n_resolved"]
+        n_unresolved = scoring["n_unresolved"]
+        overall_count = scoring["overall_count"]
+        easy_avg = scoring["easy_avg"]
+        easy_count = scoring["easy_count"]
+        medium_avg = scoring["medium_avg"]
+        medium_count = scoring["medium_count"]
+        hard_avg = scoring["hard_avg"]
+        hard_count = scoring["hard_count"]
+        unknown_avg = scoring["unknown_avg"]
+        unknown_count = scoring["unknown_count"]
+        failure_mode_counts = scoring["failure_mode_counts"]
+        task_scores_list = scoring["task_scores_list"]
+
+        # Build failure summary in markdown
         failure_summary_message = ""
         if failure_mode_counts:
-            failure_summary_message = "\nFailure Mode Summary:\n"
+            failure_summary_message = "\n### Failure Mode Summary\n\n"
             sorted_failures = sorted(
                 failure_mode_counts.items(), key=lambda item: item[1], reverse=True
             )
             for mode, count in sorted_failures:
-                failure_summary_message += f"- {mode}: {count}\n"
+                failure_summary_message += f"- **{mode}**: {count}\n"
 
-        message = f"""
-Terminal-Bench Evaluation Results
-=====================================
-(Weighting: Easy=1, Medium=2, Hard=3)
+        # Build markdown-formatted message
+        message = f"""# Terminal-Bench Evaluation Results
 
-Evaluation Summary:
-- Overall Score: {weighted_overall_avg:.2%}
-- Resolved: {results.n_resolved}/{overall_count}
-- Unresolved: {results.n_unresolved}/{overall_count}
+**Weighting**: Easy=1, Medium=2, Hard=3
+## Evaluation Summary
 
-Scores by Difficulty (Unweighted Avg):
-- Easy:   {easy_avg:.2%}
-- Medium: {medium_avg:.2%}
-- Hard:   {hard_avg:.2%}
-"""
+- **Overall Score**: `{weighted_overall_avg:.2%}`
+- **Resolved**: `{n_resolved}/{overall_count}`
+- **Unresolved**: `{n_unresolved}/{overall_count}`
+
+## Scores by Difficulty (Unweighted Average)
+
+| Difficulty | Average Score | Count |
+|------------|---------------|-------|
+| Easy       | `{easy_avg:.2%}` | {easy_count} |
+| Medium     | `{medium_avg:.2%}` | {medium_count} |
+| Hard       | `{hard_avg:.2%}` | {hard_count} |"""
+
         if unknown_count > 0:
-            message += f"- Unknown: {unknown_avg:.2%} ({unknown_count} tasks) -- *Task ID not in TASK_DIFFICULTY_MAP*\n"
-
+            message += f"\n| Unknown     | `{unknown_avg:.2%}` | {unknown_count} | *Task ID not in TASK_DIFFICULTY_MAP* |"
         message += failure_summary_message
 
         if results.pass_at_k:
-            message += "\nPass@k Metrics (based on is_resolved):\n"
+            message += "\n### Pass@k Metrics (based on is_resolved)\n\n"
             for k, score in results.pass_at_k.items():
                 if score is not None:
-                    message += f"- Pass@{k}: {score:.2%}\n"
+                    message += f"- **Pass@{k}**: `{score:.2%}`\n"
             message += "\n"
 
-        # Add per-task results
-        message += "Task Results:\n"
-        message += "-" * 60 + "\n"
+        # Add per-task results in markdown table
+        message += "\n## Task Results\n\n"
+        message += "| Status | Score | Task ID | Tests Passed | Failure Mode | Tokens (in/out) |\n"
+        message += "|--------|-------|---------|--------------|--------------|-----------------|\n"
 
         for task in task_scores_list:
-            status = "✓" if task["is_resolved"] else "✗"
-            message += f"{status} Score: {task['score']:.2%} - {task['id']} (Tests: {task['tests_passed']}/{task['tests_total']})\n"
-
+            status = "✅" if task["is_resolved"] else "❌"
+            failure_mode_val = ""
             if not task["is_resolved"] and task["failure_mode"]:
                 failure_mode_val = (
                     task["failure_mode"].value
                     if hasattr(task["failure_mode"], "value")
-                    else task["failure_mode"]
+                    else str(task["failure_mode"])
                 )
-                message += f"      Failure Mode: {failure_mode_val}\n"
-            if task["total_input_tokens"] or task["total_output_tokens"]:
-                message += f"      Tokens: {task['total_input_tokens'] or 0} in, {task['total_output_tokens'] or 0} out\n"
+                if failure_mode_val == "unset":
+                    failure_mode_val = "other (unset)"
+            tokens_str = f"{task['total_input_tokens'] or 0} / {task['total_output_tokens'] or 0}"
 
-        message += "\n" + "=" * 60 + "\n"
+            message += f"| {status} | `{task['score']:.2%}` | `{task['id']}` | {task['tests_passed']}/{task['tests_total']} | {failure_mode_val or '-'} | {tokens_str} |\n"
 
         return message
 
@@ -326,84 +413,54 @@ Scores by Difficulty (Unweighted Avg):
     ) -> None:
         """
         Execute the green agent - run terminal-bench evaluation.
+        Runs evaluation synchronously and returns a Message with results.
+
+        This approach matches how the chess-bench green agent works:
+        - Run evaluation synchronously (blocking the HTTP request)
+        - Return a Message object (not a Task) when complete
+        - Platform interprets Message as "done" vs Task(working) as "still processing"
+
+        Requires Cloudflare proxy timeout to be extended or disabled.
         """
         logger.info("Green agent execute() called")
 
-        # Create or get current task
-        task = context.current_task
-        if task is None:
-            task = new_task(context.message)
-            await event_queue.enqueue_event(task)
-
-        updater = TaskUpdater(event_queue, task.id, task.context_id)
-
-        logger.info("Task created, sending initial status")
-
-        # Set status to working
-        await updater.update_status(
-            TaskState.working,
-            new_agent_text_message(
-                "Received evaluation request. Parsing configuration...\n",
-                task.context_id,
-                task.id,
-            ),
-        )
-
-        logger.info("Initial status sent")
-
         try:
-            # Parse task configuration from user input
-            user_input = context.get_user_input()
-            logger.info(f"Received user input: {user_input}")
+            # Parse configuration
+            agent_url = os.getenv("AGENT_URL")
+            if agent_url:
+                # Use Agentbeats to run eval
+                task_config = {
+                    "task_ids": settings.eval_task_ids,
+                    "white_agent_url": self.parse_white_agent_url(
+                        context.get_user_input()
+                    ),
+                    "n_attempts": settings.eval_n_attempts,
+                    "n_concurrent_trials": settings.eval_n_concurrent_trials,
+                    "timeout_multiplier": settings.eval_timeout_multiplier,
+                    "dataset_name": settings.dataset_name,
+                    "dataset_version": settings.dataset_version,
+                }
+            else:
+                # Use kickoff script to run eval
+                # Parse task configuration from user input
+                user_input = context.get_user_input()
+                logger.info(f"Received user input: {user_input}")
+                task_config = self.parse_task_config(user_input)
 
-            task_config = self.parse_task_config(user_input)
             logger.info(f"Parsed task config: {task_config}")
 
-            await updater.update_status(
-                TaskState.working,
-                new_agent_text_message(
-                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...\n",
-                    task.context_id,
-                    task.id,
-                ),
-            )
+            # Log start of evaluation
+            _print_to_stderr("=" * 60)
+            _print_to_stderr(f"STARTING EVALUATION - Running synchronously")
+            _print_to_stderr(f"White agent URL: {task_config.get('white_agent_url')}")
+            _print_to_stderr("=" * 60)
 
-            # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
-            # This allows us to send periodic keepalive messages
+            # Run evaluation SYNCHRONOUSLY (blocking)
+            # This keeps the HTTP connection open until evaluation completes
             loop = asyncio.get_event_loop()
-            harness_future = loop.run_in_executor(
-                _harness_executor,
-                self.run_terminal_bench_evaluation,
-                task_config
+            results = await loop.run_in_executor(
+                _harness_executor, self.run_terminal_bench_evaluation, task_config
             )
-
-            # Send keepalive messages while waiting for harness to complete
-            keepalive_interval = 30  # seconds
-            keepalive_count = 0
-            while not harness_future.done():
-                try:
-                    # Wait for either the harness to complete or the keepalive interval
-                    results = await asyncio.wait_for(
-                        asyncio.shield(harness_future),
-                        timeout=keepalive_interval
-                    )
-                    break  # Harness completed
-                except asyncio.TimeoutError:
-                    # Send keepalive message
-                    keepalive_count += 1
-                    elapsed_minutes = (keepalive_count * keepalive_interval) // 60
-                    await updater.update_status(
-                        TaskState.working,
-                        new_agent_text_message(
-                            f"Evaluation in progress... ({elapsed_minutes}+ minutes elapsed)\n",
-                            task.context_id,
-                            task.id,
-                        ),
-                    )
-                    logger.debug(f"Sent keepalive message #{keepalive_count}")
-
-            # Get the result (will raise if there was an exception)
-            results = harness_future.result()
 
             # Store in history
             self.evaluation_history.append(
@@ -414,15 +471,32 @@ Scores by Difficulty (Unweighted Avg):
                 }
             )
 
+            # Log results to stderr for platform visibility
+            _print_to_stderr("=" * 60)
+            _print_to_stderr("EVALUATION COMPLETED")
+            _print_to_stderr("=" * 60)
+
+            # Calculate and log scoring summary
+            scoring_summary = self._calculate_customized_scoring(results)
+            _print_to_stderr(f"Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
+            _print_to_stderr(f"Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
+            _print_to_stderr("=" * 60)
+
             # Format results message
             results_message = self.format_results_message(results, task_config)
 
-            # Send final response
-            await updater.add_artifact(
-                [Part(root=TextPart(text=results_message))],
-                name="evaluation_results",
+            # Return a Message directly (not a Task)
+            # This signals to the platform that the work is complete
+            # Similar to how chess-bench returns: result=Message(...)
+            await event_queue.enqueue_event(
+                new_agent_text_message(
+                    f"Finished. Results:\n\n{results_message}",
+                    context.context_id,
+                    None  # task_id=None indicates this is a direct response
+                )
             )
-            await updater.complete()
+
+            logger.info("Evaluation complete, Message response sent")
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)
@@ -434,18 +508,14 @@ Scores by Difficulty (Unweighted Avg):
                 f"Error during evaluation: {str(e)}\n\nTraceback:\n{error_details}"
             )
 
-            try:
-                await updater.add_artifact(
-                    [Part(root=TextPart(text=error_message))],
-                    name="error",
+            # Return error as Message
+            await event_queue.enqueue_event(
+                new_agent_text_message(
+                    f"Evaluation failed: {error_message}",
+                    context.context_id,
+                    None
                 )
-                await updater.update_status(
-                    TaskState.failed,
-                    new_agent_text_message(error_message, task.context_id, task.id),
-                )
-                await updater.complete()
-            except Exception as update_error:
-                logger.error(f"Failed to send error update: {update_error}")
+            )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Cancel the current evaluation (not implemented)."""
@@ -491,6 +561,10 @@ def main(host: str | None = None, port: int | None = None):
         format=settings.log_format,
     )
 
+    # Ensure terminal_bench logs are visible
+    logging.getLogger("terminal_bench").setLevel(logging.INFO)
+    logging.getLogger("src").setLevel(logging.INFO)
+
     # Configuration is validated automatically when properties are accessed
     logger.info("Starting green agent with config from config.toml")
 
@@ -498,9 +572,7 @@ def main(host: str | None = None, port: int | None = None):
     agent_host = host if host is not None else settings.green_agent_host
     agent_port = port if port is not None else settings.green_agent_port
 
-    logger.info(
-        f"Starting Terminal-Bench Green Agent on {agent_host}:{agent_port}"
-    )
+    logger.info(f"Starting Terminal-Bench Green Agent on {agent_host}:{agent_port}")
     logger.info(f"Using agent card: {settings.green_agent_card_path}")
 
     # Load agent card
@@ -525,6 +597,7 @@ def main(host: str | None = None, port: int | None = None):
     )
     server = uvicorn.Server(config)
     server.run()
+
 
 if __name__ == "__main__":
     main()

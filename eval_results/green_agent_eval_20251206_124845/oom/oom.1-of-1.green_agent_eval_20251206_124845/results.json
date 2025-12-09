@@ -1,0 +1,20 @@
+{
+    "id": "056414aa-e5f5-4a0e-914e-3c337b9a88af",
+    "trial_name": "oom.1-of-1.green_agent_eval_20251206_124845",
+    "task_id": "oom",
+    "instruction": "I want you to cache the `albert/albert-base-v2` model and tokenizer from huggingface so that I can use it offline when I'm on my next flight.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_offline_model_load": "failed"
+    },
+    "recording_path": "green_agent_eval_20251206_124845/oom/oom.1-of-1.green_agent_eval_20251206_124845/sessions/agent.cast",
+    "total_input_tokens": 1073,
+    "total_output_tokens": 341,
+    "trial_started_at": "2025-12-07T06:48:19.531096+00:00",
+    "trial_ended_at": "2025-12-07T06:50:36.418943+00:00",
+    "agent_started_at": "2025-12-07T06:49:49.747441+00:00",
+    "agent_ended_at": "2025-12-07T06:50:12.798058+00:00",
+    "test_started_at": "2025-12-07T06:50:16.293761+00:00",
+    "test_ended_at": "2025-12-07T06:50:24.221185+00:00"
+}
