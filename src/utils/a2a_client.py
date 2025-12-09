@@ -86,7 +86,12 @@ async def send_message_to_agent(
             if not isinstance(chunk.root, SendStreamingMessageSuccessResponse):
                 continue
             event = chunk.root.result
-            if isinstance(event, TaskArtifactUpdateEvent):
+            if isinstance(event, Message):
+                # Handle direct Message response
+                for p in event.parts:
+                    if isinstance(p.root, TextPart):
+                        chunks.append(p.root.text)
+            elif isinstance(event, TaskArtifactUpdateEvent):
                 for p in event.artifact.parts:
                     if isinstance(p.root, TextPart):
                         chunks.append(p.root.text)
