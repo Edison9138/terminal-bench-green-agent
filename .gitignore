@@ -281,3 +281,6 @@ notebooks/
 
 # Streamlit (if used for visualization)
 .streamlit/
+
+
+eval_results/
