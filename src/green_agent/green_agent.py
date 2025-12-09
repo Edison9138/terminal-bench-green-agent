@@ -21,9 +21,8 @@ from a2a.server.tasks import InMemoryTaskStore
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
-from a2a.types import AgentCard, Part, TextPart, TaskState
-from a2a.utils import new_task, new_agent_text_message
-from a2a.server.tasks import TaskUpdater
+from a2a.types import AgentCard
+from a2a.utils import new_agent_text_message
 
 from terminal_bench.harness.harness import Harness
 from terminal_bench.harness.models import BenchmarkResults
@@ -414,33 +413,19 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
     ) -> None:
         """
         Execute the green agent - run terminal-bench evaluation.
-        Returns immediately after starting the evaluation in background.
+        Runs evaluation synchronously and returns a Message with results.
+
+        This approach matches how the chess-bench green agent works:
+        - Run evaluation synchronously (blocking the HTTP request)
+        - Return a Message object (not a Task) when complete
+        - Platform interprets Message as "done" vs Task(working) as "still processing"
+
+        Requires Cloudflare proxy timeout to be extended or disabled.
         """
         logger.info("Green agent execute() called")
 
-        # Create or get current task
-        task = context.current_task
-        if task is None:
-            task = new_task(context.message)
-            await event_queue.enqueue_event(task)
-
-        updater = TaskUpdater(event_queue, task.id, task.context_id)
-
-        logger.info("Task created, sending initial status")
-
-        # Set status to working
-        await updater.update_status(
-            TaskState.working,
-            new_agent_text_message(
-                "**Received evaluation request.** Parsing configuration...",
-                task.context_id,
-                task.id,
-            ),
-        )
-
-        logger.info("Initial status sent")
-
         try:
+            # Parse configuration
             agent_url = os.getenv("AGENT_URL")
             if agent_url:
                 # Use Agentbeats to run eval
@@ -464,72 +449,14 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
             logger.info(f"Parsed task config: {task_config}")
 
-            await updater.update_status(
-                TaskState.working,
-                new_agent_text_message(
-                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...\n\n"
-                    f"Task ID: `{task.id}` - Evaluation running in background.",
-                    task.context_id,
-                    task.id,
-                ),
-            )
+            # Log start of evaluation
+            _print_to_stderr("=" * 60)
+            _print_to_stderr(f"STARTING EVALUATION - Running synchronously")
+            _print_to_stderr(f"White agent URL: {task_config.get('white_agent_url')}")
+            _print_to_stderr("=" * 60)
 
-            # Start evaluation in background and return immediately
-            # The platform uses message/send (non-streaming), so we must return quickly
-            # to avoid Cloudflare 524 timeout. The platform can poll tasks/get for results.
-            asyncio.create_task(
-                self._run_evaluation_in_background(task_config, updater, task),
-                name=f"evaluation-{task.id}"
-            )
-
-            logger.info(f"Evaluation started in background for task {task.id}, returning immediately")
-            return
-
-        except Exception as e:
-            logger.error(f"Error during setup: {e}", exc_info=True)
-            import traceback
-
-            error_details = traceback.format_exc()
-            logger.error(f"Full traceback:\n{error_details}")
-            error_message = (
-                f"Error during setup: {str(e)}\n\nTraceback:\n{error_details}"
-            )
-
-            try:
-                await updater.add_artifact(
-                    [Part(root=TextPart(text=error_message))],
-                    name="error",
-                )
-                # update_status with TaskState.failed sets final=True internally
-                await updater.update_status(
-                    TaskState.failed,
-                    new_agent_text_message(error_message, task.context_id, task.id),
-                )
-            except Exception as update_error:
-                logger.error(f"Failed to send error update: {update_error}")
-
-    async def _run_evaluation_in_background(
-        self, task_config: dict, updater: TaskUpdater, task: Any
-    ) -> None:
-        """
-        Run evaluation in background as a fire-and-forget asyncio task.
-
-        This method runs after execute() has already returned, so the initial
-        HTTP response completes quickly (avoiding Cloudflare 524 timeout).
-        The task state is persisted in TaskStore, allowing the platform to
-        poll for results via tasks/get endpoint.
-        """
-        try:
-            # Use both logger and direct stderr print for platform visibility
-            def log_and_print(msg: str) -> None:
-                logger.info(msg)
-                _print_to_stderr(msg)
-
-            log_and_print("=" * 60)
-            log_and_print(f"BACKGROUND EVALUATION STARTED - Task ID: {task.id}")
-            log_and_print("=" * 60)
-
-            # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
+            # Run evaluation SYNCHRONOUSLY (blocking)
+            # This keeps the HTTP connection open until evaluation completes
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
                 _harness_executor, self.run_terminal_bench_evaluation, task_config
@@ -544,85 +471,32 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 }
             )
 
-            # Log customized scoring summary (console-friendly format)
-            log_and_print("=" * 60)
-            log_and_print("TERMINAL-BENCH EVALUATION RESULTS")
-            log_and_print("=" * 60)
-            log_and_print("(Weighting: Easy=1, Medium=2, Hard=3)")
-            log_and_print("")
+            # Log results to stderr for platform visibility
+            _print_to_stderr("=" * 60)
+            _print_to_stderr("EVALUATION COMPLETED")
+            _print_to_stderr("=" * 60)
 
-            # Calculate customized scoring
+            # Calculate and log scoring summary
             scoring_summary = self._calculate_customized_scoring(results)
-
-            log_and_print("Evaluation Summary:")
-            log_and_print(f"- Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
-            log_and_print(f"- Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
-            log_and_print(f"- Unresolved: {scoring_summary['n_unresolved']}/{scoring_summary['overall_count']}")
-            log_and_print("")
-            log_and_print("Scores by Difficulty (Unweighted Avg):")
-            log_and_print(f"- Easy:   {scoring_summary['easy_avg']:.2%} ({scoring_summary['easy_count']} tasks)")
-            log_and_print(f"- Medium: {scoring_summary['medium_avg']:.2%} ({scoring_summary['medium_count']} tasks)")
-            log_and_print(f"- Hard:   {scoring_summary['hard_avg']:.2%} ({scoring_summary['hard_count']} tasks)")
-
-            if scoring_summary['unknown_count'] > 0:
-                log_and_print(f"- Unknown: {scoring_summary['unknown_avg']:.2%} ({scoring_summary['unknown_count']} tasks)")
-
-            # Failure mode summary
-            if scoring_summary['failure_mode_counts']:
-                log_and_print("")
-                log_and_print("Failure Mode Summary:")
-                sorted_failures = sorted(
-                    scoring_summary['failure_mode_counts'].items(),
-                    key=lambda item: item[1],
-                    reverse=True
-                )
-                for mode, count in sorted_failures:
-                    log_and_print(f"- {mode}: {count}")
-
-            # Task results
-            log_and_print("")
-            log_and_print("Task Results:")
-            log_and_print("-" * 60)
-            for task_result in scoring_summary['task_scores_list']:
-                status = "✓" if task_result["is_resolved"] else "✗"
-                log_and_print(f"{status} Score: {task_result['score']:.2%} - {task_result['id']} (Tests: {task_result['tests_passed']}/{task_result['tests_total']})")
-
-                if not task_result["is_resolved"] and task_result["failure_mode"]:
-                    failure_mode_val = (
-                        task_result["failure_mode"].value
-                        if hasattr(task_result["failure_mode"], "value")
-                        else str(task_result["failure_mode"])
-                    )
-                    if failure_mode_val == "unset":
-                        failure_mode_val = "other (unset)"
-                    log_and_print(f"      Failure Mode: {failure_mode_val}")
-
-                if task_result["total_input_tokens"] or task_result["total_output_tokens"]:
-                    log_and_print(f"      Tokens: {task_result['total_input_tokens'] or 0} in, {task_result['total_output_tokens'] or 0} out")
-
-            log_and_print("=" * 60)
+            _print_to_stderr(f"Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
+            _print_to_stderr(f"Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
+            _print_to_stderr("=" * 60)
 
             # Format results message
             results_message = self.format_results_message(results, task_config)
-            log_and_print(f"Full results:\n{results_message}")
 
-            # Send the artifact first (before marking complete)
-            await updater.add_artifact(
-                [Part(root=TextPart(text=results_message))],
-                name="evaluation_results",
-            )
-
-            # Send final completion status with results
-            # This updates the task in TaskStore so tasks/get returns the results
-            await updater.update_status(
-                TaskState.completed,
+            # Return a Message directly (not a Task)
+            # This signals to the platform that the work is complete
+            # Similar to how chess-bench returns: result=Message(...)
+            await event_queue.enqueue_event(
                 new_agent_text_message(
-                    f"✅ **Evaluation Complete!**\n\n{results_message}",
-                    task.context_id,
-                    task.id,
-                ),
+                    f"Finished. Results:\n\n{results_message}",
+                    context.context_id,
+                    None  # task_id=None indicates this is a direct response
+                )
             )
-            log_and_print(f"Evaluation completed successfully for task {task.id}")
+
+            logger.info("Evaluation complete, Message response sent")
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)
@@ -634,18 +508,14 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 f"Error during evaluation: {str(e)}\n\nTraceback:\n{error_details}"
             )
 
-            try:
-                await updater.add_artifact(
-                    [Part(root=TextPart(text=error_message))],
-                    name="error",
+            # Return error as Message
+            await event_queue.enqueue_event(
+                new_agent_text_message(
+                    f"Evaluation failed: {error_message}",
+                    context.context_id,
+                    None
                 )
-                # update_status with TaskState.failed sets final=True internally
-                await updater.update_status(
-                    TaskState.failed,
-                    new_agent_text_message(error_message, task.context_id, task.id),
-                )
-            except Exception as update_error:
-                logger.error(f"Failed to send error update: {update_error}")
+            )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Cancel the current evaluation (not implemented)."""
