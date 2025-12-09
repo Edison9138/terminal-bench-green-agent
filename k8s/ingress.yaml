@@ -1,0 +1,88 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: terminal-bench-cert
+spec:
+  domains:
+    - terminal-bench-green-agent.davidchen.site
+    - terminal-bench-white-agent.davidchen.site
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: terminal-bench-backend-config
+spec:
+  timeoutSec: 3600  # 1 hour timeout - no more 524 errors!
+  connectionDraining:
+    drainingTimeoutSec: 300
+  healthCheck:
+    requestPath: /openapi.json
+    port: 8010
+    type: HTTP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: terminal-bench-green-agent-ingress
+  labels:
+    app: terminal-bench-green-agent
+  annotations:
+    cloud.google.com/backend-config: '{"default": "terminal-bench-backend-config"}'
+spec:
+  type: NodePort  # Required for GKE Ingress
+  ports:
+  - port: 80
+    targetPort: 8010
+    protocol: TCP
+    name: http
+  selector:
+    app: terminal-bench-green-agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: terminal-bench-white-agent-ingress
+  labels:
+    app: terminal-bench-white-agent
+  annotations:
+    cloud.google.com/backend-config: '{"default": "terminal-bench-backend-config"}'
+spec:
+  type: NodePort  # Required for GKE Ingress
+  ports:
+  - port: 80
+    targetPort: 8010
+    protocol: TCP
+    name: http
+  selector:
+    app: terminal-bench-white-agent
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: terminal-bench-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "terminal-bench-cert"
+    # Removed static IP requirement - will use ephemeral IP
+spec:
+  rules:
+    - host: terminal-bench-green-agent.davidchen.site
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: terminal-bench-green-agent-ingress
+                port:
+                  number: 80
+    - host: terminal-bench-white-agent.davidchen.site
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: terminal-bench-white-agent-ingress
+                port:
+                  number: 80
