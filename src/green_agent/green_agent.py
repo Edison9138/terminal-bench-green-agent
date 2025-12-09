@@ -59,6 +59,19 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
         except json.JSONDecodeError:
             raise ValueError("Could not parse task configuration from user input")
 
+    def parse_white_agent_url(self, user_input: str) -> str | None:
+        """
+        Parse white agent URL from user input.
+        Extracts URL from <white_agent_url> tags.
+        """
+        match = re.search(r"<white_agent_url>(.*?)</white_agent_url>", user_input, re.DOTALL)
+        if match:
+            url = match.group(1).strip()
+            logger.info(f"Extracted white_agent_url from tags: {url}")
+            return url
+        logger.warning("No <white_agent_url> tag found in user input")
+        return None
+
     def run_terminal_bench_evaluation(self, config: dict[str, Any]) -> BenchmarkResults:
         """
         Run terminal-bench harness with the given configuration.
@@ -261,61 +274,64 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         overall_count = easy_count + medium_count + hard_count + unknown_count
 
+        # Build failure summary in markdown
         failure_summary_message = ""
         if failure_mode_counts:
-            failure_summary_message = "\nFailure Mode Summary:\n"
+            failure_summary_message = "\n### Failure Mode Summary\n\n"
             sorted_failures = sorted(
                 failure_mode_counts.items(), key=lambda item: item[1], reverse=True
             )
             for mode, count in sorted_failures:
-                failure_summary_message += f"- {mode}: {count}\n"
+                failure_summary_message += f"- **{mode}**: {count}\n"
 
-        message = f"""
-Terminal-Bench Evaluation Results
-=====================================
-(Weighting: Easy=1, Medium=2, Hard=3)
+        # Build markdown-formatted message
+        message = f"""# Terminal-Bench Evaluation Results
 
-Evaluation Summary:
-- Overall Score: {weighted_overall_avg:.2%}
-- Resolved: {results.n_resolved}/{overall_count}
-- Unresolved: {results.n_unresolved}/{overall_count}
+**Weighting**: Easy=1, Medium=2, Hard=3
+## Evaluation Summary
 
-Scores by Difficulty (Unweighted Avg):
-- Easy:   {easy_avg:.2%}
-- Medium: {medium_avg:.2%}
-- Hard:   {hard_avg:.2%}
-"""
+- **Overall Score**: `{weighted_overall_avg:.2%}`
+- **Resolved**: `{results.n_resolved}/{overall_count}`
+- **Unresolved**: `{results.n_unresolved}/{overall_count}`
+
+## Scores by Difficulty (Unweighted Average)
+
+| Difficulty | Average Score | Count |
+|------------|---------------|-------|
+| Easy       | `{easy_avg:.2%}` | {easy_count} |
+| Medium     | `{medium_avg:.2%}` | {medium_count} |
+| Hard       | `{hard_avg:.2%}` | {hard_count} |"""
+        
         if unknown_count > 0:
-            message += f"- Unknown: {unknown_avg:.2%} ({unknown_count} tasks) -- *Task ID not in TASK_DIFFICULTY_MAP*\n"
-
+            message += f"\n| Unknown     | `{unknown_avg:.2%}` | {unknown_count} | *Task ID not in TASK_DIFFICULTY_MAP* |"
         message += failure_summary_message
 
         if results.pass_at_k:
-            message += "\nPass@k Metrics (based on is_resolved):\n"
+            message += "\n### Pass@k Metrics (based on is_resolved)\n\n"
             for k, score in results.pass_at_k.items():
                 if score is not None:
-                    message += f"- Pass@{k}: {score:.2%}\n"
+                    message += f"- **Pass@{k}**: `{score:.2%}`\n"
             message += "\n"
 
-        # Add per-task results
-        message += "Task Results:\n"
-        message += "-" * 60 + "\n"
+        # Add per-task results in markdown table
+        message += "\n## Task Results\n\n"
+        message += "| Status | Score | Task ID | Tests Passed | Failure Mode | Tokens (in/out) |\n"
+        message += "|--------|-------|---------|--------------|--------------|-----------------|\n"
 
         for task in task_scores_list:
-            status = "✓" if task["is_resolved"] else "✗"
-            message += f"{status} Score: {task['score']:.2%} - {task['id']} (Tests: {task['tests_passed']}/{task['tests_total']})\n"
-
+            status = "✅" if task["is_resolved"] else "❌"
+            failure_mode_val = ""
             if not task["is_resolved"] and task["failure_mode"]:
                 failure_mode_val = (
                     task["failure_mode"].value
                     if hasattr(task["failure_mode"], "value")
-                    else task["failure_mode"]
+                    else str(task["failure_mode"])
                 )
-                message += f"      Failure Mode: {failure_mode_val}\n"
-            if task["total_input_tokens"] or task["total_output_tokens"]:
-                message += f"      Tokens: {task['total_input_tokens'] or 0} in, {task['total_output_tokens'] or 0} out\n"
-
-        message += "\n" + "=" * 60 + "\n"
+                if failure_mode_val == "unset":
+                    failure_mode_val = "other (unset)"
+            tokens_str = f"{task['total_input_tokens'] or 0} / {task['total_output_tokens'] or 0}"
+            
+            message += f"| {status} | `{task['score']:.2%}` | `{task['id']}` | {task['tests_passed']}/{task['tests_total']} | {failure_mode_val or '-'} | {tokens_str} |\n"
 
         return message
 
@@ -326,6 +342,7 @@ Scores by Difficulty (Unweighted Avg):
     ) -> None:
         """
         Execute the green agent - run terminal-bench evaluation.
+        Returns immediately after starting the evaluation in background.
         """
         logger.info("Green agent execute() called")
 
@@ -343,7 +360,7 @@ Scores by Difficulty (Unweighted Avg):
         await updater.update_status(
             TaskState.working,
             new_agent_text_message(
-                "Received evaluation request. Parsing configuration...\n",
+                "**Received evaluation request.** Parsing configuration...",
                 task.context_id,
                 task.id,
             ),
@@ -354,10 +371,10 @@ Scores by Difficulty (Unweighted Avg):
         try:
             agent_url = os.getenv("AGENT_URL")
             if agent_url:
-            # Use Agentbeats to run eval
+                # Use Agentbeats to run eval
                 task_config = {
                     "task_ids": settings.eval_task_ids,
-                    "white_agent_url": settings.white_agent_url,
+                    "white_agent_url": self.parse_white_agent_url(context.get_user_input()),
                     "n_attempts": settings.eval_n_attempts,
                     "n_concurrent_trials": settings.eval_n_concurrent_trials,
                     "timeout_multiplier": settings.eval_timeout_multiplier,
@@ -370,18 +387,53 @@ Scores by Difficulty (Unweighted Avg):
                 user_input = context.get_user_input()
                 logger.info(f"Received user input: {user_input}")
                 task_config = self.parse_task_config(user_input)
+            
             logger.info(f"Parsed task config: {task_config}")
-
 
             await updater.update_status(
                 TaskState.working,
                 new_agent_text_message(
-                    f"Configuration parsed. Starting evaluation of agent at {task_config.get('white_agent_url')}...\n",
+                    f"**Configuration parsed.** Starting evaluation of agent at `{task_config.get('white_agent_url')}`...",
                     task.context_id,
                     task.id,
                 ),
             )
 
+            # Run evaluation in background but keep execute() running to send updates
+            # This ensures the platform continues to show logs/updates
+            await self._run_evaluation_with_updates(task_config, updater, task)
+            
+            logger.info("Evaluation completed, returning from execute()")
+            return
+
+        except Exception as e:
+            logger.error(f"Error during setup: {e}", exc_info=True)
+            import traceback
+
+            error_details = traceback.format_exc()
+            logger.error(f"Full traceback:\n{error_details}")
+            error_message = (
+                f"Error during setup: {str(e)}\n\nTraceback:\n{error_details}"
+            )
+
+            try:
+                await updater.add_artifact(
+                    [Part(root=TextPart(text=error_message))],
+                    name="error",
+                )
+                await updater.update_status(
+                    TaskState.failed,
+                    new_agent_text_message(error_message, task.context_id, task.id),
+                )
+                await updater.complete()
+            except Exception as update_error:
+                logger.error(f"Failed to send error update: {update_error}")
+
+    async def _run_evaluation_with_updates(
+        self, task_config: dict, updater: TaskUpdater, task: Any
+    ) -> None:
+        """Run evaluation and send periodic updates while keeping execute() alive."""
+        try:            
             # Run terminal-bench evaluation in a thread pool to avoid blocking the event loop
             # This allows us to send periodic keepalive messages
             loop = asyncio.get_event_loop()
@@ -392,6 +444,7 @@ Scores by Difficulty (Unweighted Avg):
             )
 
             # Send keepalive messages while waiting for harness to complete
+            # Keep execute() running so platform continues to show updates
             keepalive_interval = 30  # seconds
             keepalive_count = 0
             while not harness_future.done():
@@ -403,18 +456,18 @@ Scores by Difficulty (Unweighted Avg):
                     )
                     break  # Harness completed
                 except asyncio.TimeoutError:
-                    # Send keepalive message
+                    # Send keepalive message to show progress
                     keepalive_count += 1
                     elapsed_minutes = (keepalive_count * keepalive_interval) // 60
                     await updater.update_status(
                         TaskState.working,
                         new_agent_text_message(
-                            f"Evaluation in progress... ({elapsed_minutes}+ minutes elapsed)\n",
+                            f"**Evaluation in progress...** ({elapsed_minutes}+ minutes elapsed)",
                             task.context_id,
                             task.id,
                         ),
                     )
-                    logger.debug(f"Sent keepalive message #{keepalive_count}")
+                    logger.info(f"Sent keepalive message #{keepalive_count} ({elapsed_minutes}+ minutes)")
 
             # Get the result (will raise if there was an exception)
             results = harness_future.result()
@@ -431,12 +484,22 @@ Scores by Difficulty (Unweighted Avg):
             # Format results message
             results_message = self.format_results_message(results, task_config)
 
-            # Send final response
+            # Send final response as both status message and artifact
+            # Status message ensures it appears in the main chat view
+            await updater.update_status(
+                TaskState.completed,
+                new_agent_text_message(
+                    f"✅ **Evaluation Complete!**\n\n{results_message}",
+                    task.context_id,
+                    task.id,
+                ),
+            )
             await updater.add_artifact(
                 [Part(root=TextPart(text=results_message))],
                 name="evaluation_results",
             )
             await updater.complete()
+            logger.info("Evaluation background task completed successfully")
 
         except Exception as e:
             logger.error(f"Error during evaluation: {e}", exc_info=True)

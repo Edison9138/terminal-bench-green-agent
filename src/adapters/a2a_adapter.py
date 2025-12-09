@@ -2,9 +2,11 @@
 
 import asyncio
 import logging
+import os
 import time
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
 from terminal_bench.agents.base_agent import BaseAgent, AgentResult
 from terminal_bench.agents.failure_mode import FailureMode
@@ -75,7 +77,32 @@ Connect to MCP, execute bash commands to complete the task."""
             port = A2AAdapter._next_port
             A2AAdapter._next_port += 1
 
-        mcp_url = f"http://localhost:{port}"
+        # Construct MCP URL using LoadBalancer IP for MCP (bypasses Cloudflare port restrictions)
+        # Priority: MCP_HOST > AGENT_URL hostname > localhost
+        mcp_host = os.getenv("MCP_HOST", "").strip()
+        if mcp_host:
+            # Use LoadBalancer IP directly (bypasses Cloudflare port restrictions)
+            # This is the preferred method for GKE deployments
+            mcp_url = f"http://{mcp_host}:{port}"
+            logger.info(f"Using LoadBalancer IP for MCP: {mcp_url} (port {port})")
+        else:
+            # Fallback: extract hostname from AGENT_URL (works but may hit Cloudflare port restrictions)
+            green_agent_url = os.getenv("AGENT_URL", "")
+            if green_agent_url:
+                parsed = urlparse(green_agent_url)
+                hostname = parsed.netloc.split(':')[0]  # Remove port if present
+                # Use HTTP for MCP SSE (MCP servers run on HTTP, not HTTPS)
+                mcp_url = f"http://{hostname}:{port}"
+                logger.warning(
+                    f"Using hostname from AGENT_URL for MCP: {mcp_url} (port {port}). "
+                    f"This may fail if Cloudflare doesn't proxy port {port}. "
+                    f"Set MCP_HOST environment variable to LoadBalancer IP for better reliability."
+                )
+            else:
+                # Fallback to localhost for local testing
+                mcp_url = f"http://localhost:{port}"
+                logger.info(f"Using localhost MCP URL: {mcp_url} (port {port})")
+        
         logger.info(f"Task: {container} on port {port}")
 
         # Create and start MCP server

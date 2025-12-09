@@ -1,0 +1,197 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: terminal-bench-green-agent
+  labels:
+    app: terminal-bench-green-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: terminal-bench-green-agent
+  template:
+    metadata:
+      labels:
+        app: terminal-bench-green-agent
+    spec:
+      containers:
+      - name: agent
+        image: gcr.io/agentbeats-davidchen/terminal-bench-agent:latest
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true  # Required for Docker-in-Docker
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run
+        env:
+        # Required by AgentBeats controller
+        - name: ROLE
+          value: "green"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: AGENT_PORT
+          value: "8080"
+        
+        # Used by AgentBeats controller to construct AGENT_URL
+        # Update this after deployment with actual external IP (see deployment guide)
+        - name: CLOUDRUN_HOST
+          value: "CHANGE_ME_AFTER_DEPLOYMENT"  # Will be updated after getting LoadBalancer IP
+        - name: HTTPS_ENABLED
+          value: "true"  # Set to "false" if using HTTP
+        
+        # MCP_HOST: LoadBalancer IP for MCP connections (bypasses Cloudflare port restrictions)
+        # Update this after deployment: kubectl set env deployment/terminal-bench-green-agent MCP_HOST=$(kubectl get service terminal-bench-green-agent -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        - name: MCP_HOST
+          value: ""  # Will be updated after getting LoadBalancer IP
+        
+        # API Keys from secret
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+        ports:
+        - containerPort: 8010
+          name: http
+        # MCP ports (10000-10100) are exposed through the Service
+        # These ports are dynamically allocated per task
+        - containerPort: 10000
+          name: mcp-start
+        - containerPort: 10100
+          name: mcp-end
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+      - name: docker-daemon
+        image: docker:dind
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run
+        - name: docker-storage
+          mountPath: /var/lib/docker
+        env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "0.25"
+          limits:
+            memory: "1Gi"
+            cpu: "0.5"
+      volumes:
+      - name: docker-sock
+        emptyDir: {}
+      - name: docker-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: terminal-bench-green-agent
+  labels:
+    app: terminal-bench-green-agent
+spec:
+  type: LoadBalancer  # Creates external IP
+  ports:
+  - port: 80
+    targetPort: 8010
+    protocol: TCP
+    name: http
+  # Expose MCP port range (10000-10100) for white agent to connect
+  # This allows up to 100 concurrent tasks
+  - port: 10000
+    targetPort: 10000
+    protocol: TCP
+    name: mcp-10000
+  - port: 10001
+    targetPort: 10001
+    protocol: TCP
+    name: mcp-10001
+  - port: 10002
+    targetPort: 10002
+    protocol: TCP
+    name: mcp-10002
+  - port: 10003
+    targetPort: 10003
+    protocol: TCP
+    name: mcp-10003
+  - port: 10004
+    targetPort: 10004
+    protocol: TCP
+    name: mcp-10004
+  - port: 10005
+    targetPort: 10005
+    protocol: TCP
+    name: mcp-10005
+  - port: 10006
+    targetPort: 10006
+    protocol: TCP
+    name: mcp-10006
+  - port: 10007
+    targetPort: 10007
+    protocol: TCP
+    name: mcp-10007
+  - port: 10008
+    targetPort: 10008
+    protocol: TCP
+    name: mcp-10008
+  - port: 10009
+    targetPort: 10009
+    protocol: TCP
+    name: mcp-10009
+  - port: 10010
+    targetPort: 10010
+    protocol: TCP
+    name: mcp-10010
+  - port: 10011
+    targetPort: 10011
+    protocol: TCP
+    name: mcp-10011
+  - port: 10012
+    targetPort: 10012
+    protocol: TCP
+    name: mcp-10012
+  - port: 10013
+    targetPort: 10013
+    protocol: TCP
+    name: mcp-10013
+  - port: 10014
+    targetPort: 10014
+    protocol: TCP
+    name: mcp-10014
+  - port: 10015
+    targetPort: 10015
+    protocol: TCP
+    name: mcp-10015
+  - port: 10016
+    targetPort: 10016
+    protocol: TCP
+    name: mcp-10016
+  - port: 10017
+    targetPort: 10017
+    protocol: TCP
+    name: mcp-10017
+  - port: 10018
+    targetPort: 10018
+    protocol: TCP
+    name: mcp-10018
+  - port: 10019
+    targetPort: 10019
+    protocol: TCP
+    name: mcp-10019
+  - port: 10020
+    targetPort: 10020
+    protocol: TCP
+    name: mcp-10020
+  # Add more ports as needed for concurrent tasks
+  # For production, consider using a NodePort service or Ingress for dynamic port allocation
+  selector:
+    app: terminal-bench-green-agent
+
