@@ -163,10 +163,11 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 
         return results
 
-    def format_results_message(
-        self, results: BenchmarkResults, config: dict[str, Any]
-    ) -> str:
-        """Format evaluation results into a human-readable message."""
+    def _calculate_customized_scoring(self, results: BenchmarkResults) -> dict[str, Any]:
+        """
+        Calculate customized scoring metrics for terminal-bench results.
+        This extracts the scoring logic to support both logging and message formatting.
+        """
         # Load scoring configuration from settings
         TASK_DIFFICULTY_MAP = settings.task_difficulty_map
         DIFFICULTY_WEIGHTS = settings.difficulty_weights
@@ -294,6 +295,49 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
             weighted_overall_avg = total_weighted_score / total_possible_weight
 
         overall_count = easy_count + medium_count + hard_count + unknown_count
+        n_resolved = sum(1 for task in task_scores_list if task["is_resolved"])
+        n_unresolved = overall_count - n_resolved
+
+        return {
+            "weighted_overall_avg": weighted_overall_avg,
+            "n_resolved": n_resolved,
+            "n_unresolved": n_unresolved,
+            "overall_count": overall_count,
+            "easy_avg": easy_avg,
+            "easy_count": easy_count,
+            "medium_avg": medium_avg,
+            "medium_count": medium_count,
+            "hard_avg": hard_avg,
+            "hard_count": hard_count,
+            "unknown_avg": unknown_avg,
+            "unknown_count": unknown_count,
+            "failure_mode_counts": failure_mode_counts,
+            "task_scores_list": task_scores_list,
+            "category_scores": category_scores,
+        }
+
+    def format_results_message(
+        self, results: BenchmarkResults, config: dict[str, Any]
+    ) -> str:
+        """Format evaluation results into a human-readable message."""
+        # Use the centralized scoring calculation
+        scoring = self._calculate_customized_scoring(results)
+
+        # Extract values for readability
+        weighted_overall_avg = scoring["weighted_overall_avg"]
+        n_resolved = scoring["n_resolved"]
+        n_unresolved = scoring["n_unresolved"]
+        overall_count = scoring["overall_count"]
+        easy_avg = scoring["easy_avg"]
+        easy_count = scoring["easy_count"]
+        medium_avg = scoring["medium_avg"]
+        medium_count = scoring["medium_count"]
+        hard_avg = scoring["hard_avg"]
+        hard_count = scoring["hard_count"]
+        unknown_avg = scoring["unknown_avg"]
+        unknown_count = scoring["unknown_count"]
+        failure_mode_counts = scoring["failure_mode_counts"]
+        task_scores_list = scoring["task_scores_list"]
 
         # Build failure summary in markdown
         failure_summary_message = ""
@@ -312,8 +356,8 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
 ## Evaluation Summary
 
 - **Overall Score**: `{weighted_overall_avg:.2%}`
-- **Resolved**: `{results.n_resolved}/{overall_count}`
-- **Unresolved**: `{results.n_unresolved}/{overall_count}`
+- **Resolved**: `{n_resolved}/{overall_count}`
+- **Unresolved**: `{n_unresolved}/{overall_count}`
 
 ## Scores by Difficulty (Unweighted Average)
 
@@ -488,17 +532,62 @@ class TerminalBenchGreenAgentExecutor(AgentExecutor):
                 }
             )
 
-            # Log summary of results
+            # Log customized scoring summary (console-friendly format)
             logger.info("=" * 60)
-            logger.info("EVALUATION RESULTS SUMMARY")
+            logger.info("TERMINAL-BENCH EVALUATION RESULTS")
             logger.info("=" * 60)
-            logger.info(f"Total tasks: {len(results.results)}")
-            logger.info(f"Resolved: {results.n_resolved}")
-            logger.info(f"Unresolved: {results.n_unresolved}")
-            logger.info(f"Accuracy: {results.accuracy:.2%}")
-            for result in results.results:
-                status = "✅" if result.is_resolved else "❌"
-                logger.info(f"  {status} {result.task_id}: {'PASSED' if result.is_resolved else 'FAILED'}")
+            logger.info("(Weighting: Easy=1, Medium=2, Hard=3)")
+            logger.info("")
+
+            # Calculate customized scoring
+            scoring_summary = self._calculate_customized_scoring(results)
+
+            logger.info("Evaluation Summary:")
+            logger.info(f"- Overall Score: {scoring_summary['weighted_overall_avg']:.2%}")
+            logger.info(f"- Resolved: {scoring_summary['n_resolved']}/{scoring_summary['overall_count']}")
+            logger.info(f"- Unresolved: {scoring_summary['n_unresolved']}/{scoring_summary['overall_count']}")
+            logger.info("")
+            logger.info("Scores by Difficulty (Unweighted Avg):")
+            logger.info(f"- Easy:   {scoring_summary['easy_avg']:.2%} ({scoring_summary['easy_count']} tasks)")
+            logger.info(f"- Medium: {scoring_summary['medium_avg']:.2%} ({scoring_summary['medium_count']} tasks)")
+            logger.info(f"- Hard:   {scoring_summary['hard_avg']:.2%} ({scoring_summary['hard_count']} tasks)")
+
+            if scoring_summary['unknown_count'] > 0:
+                logger.info(f"- Unknown: {scoring_summary['unknown_avg']:.2%} ({scoring_summary['unknown_count']} tasks)")
+
+            # Failure mode summary
+            if scoring_summary['failure_mode_counts']:
+                logger.info("")
+                logger.info("Failure Mode Summary:")
+                sorted_failures = sorted(
+                    scoring_summary['failure_mode_counts'].items(),
+                    key=lambda item: item[1],
+                    reverse=True
+                )
+                for mode, count in sorted_failures:
+                    logger.info(f"- {mode}: {count}")
+
+            # Task results
+            logger.info("")
+            logger.info("Task Results:")
+            logger.info("-" * 60)
+            for task in scoring_summary['task_scores_list']:
+                status = "✓" if task["is_resolved"] else "✗"
+                logger.info(f"{status} Score: {task['score']:.2%} - {task['id']} (Tests: {task['tests_passed']}/{task['tests_total']})")
+
+                if not task["is_resolved"] and task["failure_mode"]:
+                    failure_mode_val = (
+                        task["failure_mode"].value
+                        if hasattr(task["failure_mode"], "value")
+                        else str(task["failure_mode"])
+                    )
+                    if failure_mode_val == "unset":
+                        failure_mode_val = "other (unset)"
+                    logger.info(f"      Failure Mode: {failure_mode_val}")
+
+                if task["total_input_tokens"] or task["total_output_tokens"]:
+                    logger.info(f"      Tokens: {task['total_input_tokens'] or 0} in, {task['total_output_tokens'] or 0} out")
+
             logger.info("=" * 60)
 
             # Format results message
