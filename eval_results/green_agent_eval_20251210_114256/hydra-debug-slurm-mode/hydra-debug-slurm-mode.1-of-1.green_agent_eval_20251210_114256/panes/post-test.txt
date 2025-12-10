@@ -1,0 +1,173 @@
+root@5d38c93d6dff:/app/src# bash /tests/run-tests.sh; tmux wait -S done
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+Get:4 http://deb.debian.org/debian bookworm/main arm64 Packages [8693 kB]
+Get:5 http://deb.debian.org/debian bookworm-updates/main arm64 Packages [6936 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main arm64 Packages [285 kB]
+Fetched 9239 kB in 2s (4100 kB/s)
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following additional packages will be installed:
+  libcurl4
+The following NEW packages will be installed:
+  curl libcurl4
+0 upgraded, 2 newly installed, 0 to remove and 37 not upgraded.
+Need to get 676 kB of archives.
+After this operation, 1431 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian bookworm/main arm64 libcurl4 arm64 7.88.1-10+deb12u14 [367 kB]
+Get:2 http://deb.debian.org/debian bookworm/main arm64 curl arm64 7.88.1-10+deb12u14 [309 kB]
+Fetched 676 kB in 0s (3565 kB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+Selecting previously unselected package libcurl4:arm64.
+(Reading database ... 11229 files and directories currently installed.)
+Preparing to unpack .../libcurl4_7.88.1-10+deb12u14_arm64.deb ...
+Unpacking libcurl4:arm64 (7.88.1-10+deb12u14) ...
+Selecting previously unselected package curl.
+Preparing to unpack .../curl_7.88.1-10+deb12u14_arm64.deb ...
+Unpacking curl (7.88.1-10+deb12u14) ...
+Setting up libcurl4:arm64 (7.88.1-10+deb12u14) ...
+Setting up curl (7.88.1-10+deb12u14) ...
+Processing triggers for libc-bin (2.36-9+deb12u9) ...
+downloading uv 0.7.13 aarch64-unknown-linux-gnu
+no checksums to verify
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Using CPython 3.13.1 interpreter at: /usr/local/bin/python
+Creating virtual environment at: .tbench-testing
+Activate with: source .tbench-testing/bin/activate
+Using Python 3.13.1 environment at: .tbench-testing
+Resolved 5 packages in 198ms
+Prepared 5 packages in 171ms
+Installed 5 packages in 14ms
+ + iniconfig==2.3.0
+ + packaging==25.0
+ + pluggy==1.6.0
+ + pygments==2.19.2
+ + pytest==8.4.1
+Using Python 3.13.1 environment at: .tbench-testing
+Resolved 5 packages in 1.49s
+      Built antlr4-python3-runtime==4.9.3
+Prepared 4 packages in 618ms
+Installed 4 packages in 3ms
+ + antlr4-python3-runtime==4.9.3
+ + hydra-core==1.3.0
+ + omegaconf==2.3.0
+ + pyyaml==6.0.3
+Using Python 3.13.1 environment at: .tbench-testing
+    Updated https://github.com/facebookresearch/hydra.git (273ce9c6e1bd54cfb0b594a4a924a4d3c9b5425f)
+Resolved 9 packages in 3.14s
+      Built hydra-submitit-launcher @ git+https://github.com/facebookresearch/hydra.git@273ce9c6e1bd54cfb0b594a4a924a4d3c9b5425f#subdirectory=plugins/hydra_subm
+itit
+Prepared 4 packages in 481ms
+Installed 4 packages in 1ms
+ + cloudpickle==3.1.2
+ + hydra-submitit-launcher==1.3.0.dev0 (from git+https://github.com/facebookresearch/hydra.git@273ce9c6e1bd54cfb0b594a4a924a4d3c9b5425f#subdirectory=plugins/hyd
+ra_submitit_launcher)
+ + submitit==1.5.3
+ + typing-extensions==4.15.0
+===================================================================== test session starts ======================================================================
+platform linux -- Python 3.13.1, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: hydra-core-1.3.0
+collected 7 items
+
+../../tests/test_outputs.py ....FFF                                                                                                                      [100%]
+
+=========================================================================== FAILURES ===========================================================================
+__________________________________________________________________________ test_debug __________________________________________________________________________
+
+    def test_debug():
+        """Check that the debug command runs successfully and produces expected output."""
+        out = subprocess.run(
+            ["python", "/app/src/main.py", "+mode=debug", "--cfg", "job"],
+            stdout=subprocess.PIPE,
+        )
+
+        ref_path = Path("/tests/ref_debug.yaml")
+
+        assert out.returncode == 0, "Debug command failed"
+        assert out.stdout, "No output from debug command"
+>       assert out.stdout.decode() == ref_path.read_text(), (
+            "Output does not match reference"
+        )
+E       AssertionError: Output does not match reference
+E       assert 'notes: my-ex...m_epochs: 1\n' == 'notes: my-ex...m_epochs: 1\n'
+E
+E           notes: my-experiment
+E         - debug: true
+E         + debug: false
+E           train:
+E             batch_size: 32
+E             learning_rate: 1.0e-05...
+E
+E         ...Full output truncated (7 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:63: AssertionError
+________________________________________________________________________ test_slurm_job ________________________________________________________________________
+
+    def test_slurm_job():
+        """Check that the SLURM job command and keep the same job config."""
+        out = subprocess.run(
+            ["python", "/app/src/main.py", "-cn=slurm", "--cfg", "job"],
+            stdout=subprocess.PIPE,
+        )
+
+        ref_path = Path("/tests/ref_original.yaml")
+
+>       assert out.returncode == 0, "Slurm job command failed"
+E       AssertionError: Slurm job command failed
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['python', '/app/src/main.py', '-cn=slurm', '--cfg', 'job'], returncode=1, stdout=b'').returncode
+
+/tests/test_outputs.py:77: AssertionError
+--------------------------------------------------------------------- Captured stderr call ---------------------------------------------------------------------
+In 'slurm': ConfigKeyError raised while composing config:
+Key 'additional_parameters' not in 'BasicLauncherConf'
+    full_key: hydra.launcher.additional_parameters
+    object_type=BasicLauncherConf
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+_______________________________________________________________________ test_slurm_hydra _______________________________________________________________________
+
+    def test_slurm_hydra():
+        """Check that the SLURM hydra command runs and hydra launcher configured."""
+        out_hydra = subprocess.run(
+            ["python", "/app/src/main.py", "-cn=slurm", "--cfg", "hydra"],
+            stdout=subprocess.PIPE,
+        )
+        ref_path = Path("/tests/ref_slurm_hydra.yaml")
+
+>       assert out_hydra.returncode == 0, "Slurm hydra command failed"
+E       AssertionError: Slurm hydra command failed
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['python', '/app/src/main.py', '-cn=slurm', '--cfg', 'hydra'], returncode=1, stdout=b'').returncode
+
+/tests/test_outputs.py:92: AssertionError
+--------------------------------------------------------------------- Captured stderr call ---------------------------------------------------------------------
+In 'slurm': ConfigKeyError raised while composing config:
+Key 'additional_parameters' not in 'BasicLauncherConf'
+    full_key: hydra.launcher.additional_parameters
+    object_type=BasicLauncherConf
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+============================================================================ PASSES ============================================================================
+=================================================================== short test summary info ====================================================================
+PASSED ../../tests/test_outputs.py::test_main_untouched
+PASSED ../../tests/test_outputs.py::test_config_untouched
+PASSED ../../tests/test_outputs.py::test_hydra_submitit_launcher_installed
+PASSED ../../tests/test_outputs.py::test_original
+FAILED ../../tests/test_outputs.py::test_debug - AssertionError: Output does not match reference
+FAILED ../../tests/test_outputs.py::test_slurm_job - AssertionError: Slurm job command failed
+FAILED ../../tests/test_outputs.py::test_slurm_hydra - AssertionError: Slurm hydra command failed
+================================================================= 3 failed, 4 passed in 1.02s ==================================================================
+root@5d38c93d6dff:/app/src#

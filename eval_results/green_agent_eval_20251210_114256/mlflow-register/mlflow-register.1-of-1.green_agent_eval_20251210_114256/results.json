@@ -1,0 +1,22 @@
+{
+    "id": "5bf17503-be5f-46c5-85b5-f70089dc7961",
+    "trial_name": "mlflow-register.1-of-1.green_agent_eval_20251210_114256",
+    "task_id": "mlflow-register",
+    "instruction": "Start a local mlflow tracking server in the background on localhost:8080.\nRandomly initialize a linear regression model using sklearn and register it is as gpt-5. Train it on a random dataset that has 3 features.",
+    "is_resolved": false,
+    "failure_mode": "unset",
+    "parser_results": {
+        "test_mlflow_server_running": "passed",
+        "test_model_registered": "passed",
+        "test_model_dimensions": "failed"
+    },
+    "recording_path": "green_agent_eval_20251210_114256/mlflow-register/mlflow-register.1-of-1.green_agent_eval_20251210_114256/sessions/agent.cast",
+    "total_input_tokens": 16214,
+    "total_output_tokens": 2186,
+    "trial_started_at": "2025-12-10T20:12:58.690856+00:00",
+    "trial_ended_at": "2025-12-10T20:16:37.563879+00:00",
+    "agent_started_at": "2025-12-10T20:14:35.794498+00:00",
+    "agent_ended_at": "2025-12-10T20:15:29.584293+00:00",
+    "test_started_at": "2025-12-10T20:15:34.464391+00:00",
+    "test_ended_at": "2025-12-10T20:16:23.704398+00:00"
+}

@@ -25,89 +25,101 @@ max_iterations = 40
 
 # Terminal-Bench Evaluation Settings
 [evaluation]
-
 task_ids = [
-    # "count-dataset-tokens",
+    "count-dataset-tokens",
     "create-bucket",
     "csv-to-parquet",
-    # "extract-safely",
+    "extract-safely",
     "fix-permissions",
-    # "git-workflow-hack",
-    # "grid-pattern-transform",
-    # "hello-world",
-    # "modernize-fortran-build",
-    # "processing-pipeline",
-    # "security-vulhub-minio",
-    # "simple-web-scraper",
-    # "blind-maze-explorer-algorithm",
-    # "blind-maze-explorer-algorithm.easy",
-    # "blind-maze-explorer-algorithm.hard",
-    # "build-initramfs-qemu",
-    # "build-linux-kernel-qemu",
-    # "build-tcc-qemu",
-    # "chess-best-move",
-    # "conda-env-conflict-resolution",
-    # "crack-7z-hash",
-    # "crack-7z-hash.easy",
-    # "crack-7z-hash.hard",
-    # "cron-broken-network",
-    # "decommissioning-service-with-sensitive-data",
-    # "download-youtube",
-    # "eval-mteb",
-    # "eval-mteb.hard",
-    # "fibonacci-server",
-    # "fix-git",
-    # "fix-pandas-version",
-    # "get-bitcoin-nodes",
-    # "heterogeneous-dates",
-    # "hf-model-inference",
-    # "incompatible-python-fasttext",
-    # "incompatible-python-fasttext.base_with_hint",
-    # "jupyter-notebook-server",
-    # "new-encrypt-command",
-    # "nginx-request-logging",
-    # "openssl-selfsigned-cert",
-    # "polyglot-c-py",
-    # "qemu-alpine-ssh",
-    # "qemu-startup",
-    # "raman-fitting",
-    # "raman-fitting.easy",
-    # "reshard-c4-data",
-    # "sanitize-git-repo",
-    # "sanitize-git-repo.hard",
-    # "simple-sheets-put",
-    # "solana-data",
-    # "sqlite-db-truncate",
-    # "sqlite-with-gcov",
-    # "swe-bench-fsspec",
-    # "swe-bench-langcodes",
-    # "tmux-advanced-workflow",
-    # "vim-terminal-task",
-    # "blind-maze-explorer-5x5",
-    # "cartpole-rl-training",
-    # "configure-git-webserver",
-    # "extract-moves-from-video",
-    # "git-multibranch",
-    # "gpt2-codegolf",
-    # "intrusion-detection",
-    # "oom",
-    # "organization-json-generator",
-    # "password-recovery",
-    # "path-tracing",
-    # "path-tracing-reverse",
-    # "play-zork",
-    # "polyglot-rust-c",
-    # "prove-plus-comm",
-    # "pytorch-model-cli",
-    # "pytorch-model-cli.easy",
-    # "pytorch-model-cli.hard",
-    # "run-pdp11-code",
-    # "super-benchmark-upet",
-    # "swe-bench-astropy-1",
-    # "swe-bench-astropy-2",
-    # "train-fasttext",
-    # "write-compressor",
+    "git-workflow-hack",
+    "grid-pattern-transform",
+    "hello-world",
+    "modernize-fortran-build",
+    "processing-pipeline",
+    "security-vulhub-minio",
+    "simple-web-scraper",
+    "blind-maze-explorer-algorithm",
+    "blind-maze-explorer-algorithm.easy",
+    "blind-maze-explorer-algorithm.hard",
+    "build-initramfs-qemu",
+    "build-linux-kernel-qemu",
+    "build-tcc-qemu",
+    "chess-best-move",
+    "conda-env-conflict-resolution",
+    "crack-7z-hash",
+    "crack-7z-hash.easy",
+    "crack-7z-hash.hard",
+    "cron-broken-network",
+    "decommissioning-service-with-sensitive-data",
+    "download-youtube",
+    "eval-mteb",
+    "eval-mteb.hard",
+    "fibonacci-server",
+    "fix-git",
+    "fix-pandas-version",
+    "get-bitcoin-nodes",
+    "heterogeneous-dates",
+    "hf-model-inference",
+    "incompatible-python-fasttext",
+    "incompatible-python-fasttext.base_with_hint",
+    "jupyter-notebook-server",
+    "new-encrypt-command",
+    "nginx-request-logging",
+    "openssl-selfsigned-cert",
+    "polyglot-c-py",
+    "qemu-alpine-ssh",
+    "qemu-startup",
+    "raman-fitting",
+    "raman-fitting.easy",
+    "reshard-c4-data",
+    "sanitize-git-repo",
+    "sanitize-git-repo.hard",
+    "simple-sheets-put",
+    "solana-data",
+    "sqlite-db-truncate",
+    "sqlite-with-gcov",
+    "swe-bench-fsspec",
+    "swe-bench-langcodes",
+    "tmux-advanced-workflow",
+    "vim-terminal-task",
+    "blind-maze-explorer-5x5",
+    "cartpole-rl-training",
+    "configure-git-webserver",
+    "extract-moves-from-video",
+    "git-multibranch",
+    "gpt2-codegolf",
+    "intrusion-detection",
+    "oom",
+    "organization-json-generator",
+    "password-recovery",
+    "path-tracing",
+    "path-tracing-reverse",
+    "play-zork",
+    "polyglot-rust-c",
+    "prove-plus-comm",
+    "pytorch-model-cli",
+    "pytorch-model-cli.easy",
+    "pytorch-model-cli.hard",
+    "run-pdp11-code",
+    "super-benchmark-upet",
+    "swe-bench-astropy-1",
+    "swe-bench-astropy-2",
+    "train-fasttext",
+    "write-compressor",
 ]
+
+# Some additional tests from terminal-bench-core=head
+# task_ids = [
+#     "mlflow-register",
+#     "hydra-debug-slurm-mode",
+#     "overfull-hbox",
+#     "adaptive-rejection-sampler",
+#     "regex-log",
+#     "gcc-compiler-optimization",
+#     "cancel-async-tasks",
+#     "parallel-particle-simulator",
+#     "reverse-engineering",
+# ]
 
 output_path = "./eval_results"
 n_attempts = 1
@@ -118,7 +130,7 @@ cleanup = true
 # Dataset Settings
 [dataset]
 name = "terminal-bench-core"
-version = "0.1.1"
+version = "0.1.1"            # or "head" for additional the tasks above
 
 # Logging Configuration
 [logging]
@@ -139,8 +151,9 @@ medium = 2
 hard = 3
 unknown = 1
 
-# Task difficulty mapping - YOU SHOULD NOT EDIT THIS SECTION
+# # Task difficulty mapping - YOU SHOULD NOT EDIT THIS SECTION
 [scoring.task_difficulty_map]
+
 # Easy tasks
 "count-dataset-tokens" = "easy"
 "create-bucket" = "easy"
@@ -226,3 +239,17 @@ unknown = 1
 "swe-bench-astropy-2" = "hard"
 "train-fasttext" = "hard"
 "write-compressor" = "hard"
+
+# For the additional tasks above
+# # Easy tasks
+# "mlflow-register" = "easy"
+# "hydra-debug-slurm-mode" = "easy"
+# "overfull-hbox" = "easy"
+# # Medium tasks
+# "adaptive-rejection-sampler" = "medium"
+# "regex-log" = "medium"
+# "gcc-compiler-optimization" = "medium"
+# # Hard tasks
+# "cancel-async-tasks" = "hard"
+# "parallel-particle-simulator" = "hard"
+# "reverse-engineering" = "hard"
