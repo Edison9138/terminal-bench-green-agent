@@ -1,0 +1,21 @@
+{
+    "id": "035ab79c-9471-4d91-a234-f2ac25459c4b",
+    "trial_name": "reverse-engineering.1-of-1.green_agent_eval_20251210_114256",
+    "task_id": "reverse-engineering",
+    "instruction": "I couldn't remember the password to run my application 'main'.\nPlease help me reverse engineer the password and run the application.\nYou could use whatever tool or method you want.\nIf you successfully reverse engineer the password, please run the application. The application will automatically generate an /app/output.txt file that you must not delete or modify.",
+    "is_resolved": false,
+    "failure_mode": "agent_timeout",
+    "parser_results": {
+        "test_answer_generated": "failed",
+        "test_answer_correctness": "failed"
+    },
+    "recording_path": "green_agent_eval_20251210_114256/reverse-engineering/reverse-engineering.1-of-1.green_agent_eval_20251210_114256/sessions/agent.cast",
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "trial_started_at": "2025-12-10T19:43:16.124759+00:00",
+    "trial_ended_at": "2025-12-10T20:19:43.824253+00:00",
+    "agent_started_at": "2025-12-10T19:44:14.828511+00:00",
+    "agent_ended_at": "2025-12-10T20:19:14.830374+00:00",
+    "test_started_at": "2025-12-10T20:19:18.740398+00:00",
+    "test_ended_at": "2025-12-10T20:19:32.511345+00:00"
+}
