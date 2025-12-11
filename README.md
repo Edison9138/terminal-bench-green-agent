@@ -2,6 +2,13 @@
 
 A green agent (evaluator) that runs [terminal-bench](https://www.tbench.ai/) to evaluate white agents (agents under test) using the A2A protocol.
 
+## Prerequisites
+
+- **Docker**: Must be installed and running (terminal-bench uses Docker for isolated task environments)
+  ```bash
+  docker ps  # Verify Docker is running
+  ```
+
 ## Quick Start
 
 1. **Create virtual environment and install dependencies:**
@@ -12,25 +19,42 @@ A green agent (evaluator) that runs [terminal-bench](https://www.tbench.ai/) to 
    pip install -r requirements.txt
    ```
 
-2. **Configure environment:**
+2. **Download dataset:**
+
+   The dataset will be downloaded automatically to `~/.cache/terminal-bench/terminal-bench-core`. To verify or manually download:
+
+   ```bash
+   terminal-bench datasets download --dataset terminal-bench-core
+   ```
+
+3. **Configure environment:**
 
    ```bash
    cp .env.example .env
    # Edit .env and add your OPENAI_API_KEY
    ```
 
-3. **(Optional) Customize evaluation settings:**
+4. **(Optional) Customize evaluation settings:**
 
    Edit [config.toml](config.toml) if you want to change:
 
    - Task IDs to evaluate (`evaluation.task_ids`)
-   - White agent model (`white_agent.model`) - need to be OpenAI
+   - White agent model (`white_agent.model`) - must be OpenAI
    - Concurrent trials (`evaluation.n_concurrent_trials`)
    - Dataset version (`dataset.version`)
 
    _Skip this step to use default settings._
 
-4. **Start the agents:**
+5. **Verify configuration:**
+
+   Ensure ports are available (9999 for green agent, 8001 for white agent, 10000+ for MCP servers):
+
+   ```bash
+   # Check if ports are in use
+   lsof -i :9999 -i :8001 -i :10000
+   ```
+
+6. **Start the agents:**
 
    In separate terminals:
 
@@ -42,7 +66,7 @@ A green agent (evaluator) that runs [terminal-bench](https://www.tbench.ai/) to 
    python -m white_agent
    ```
 
-5. **Run evaluation:**
+7. **Run evaluation:**
 
    In a third terminal:
 
